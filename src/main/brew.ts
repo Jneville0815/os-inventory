@@ -40,12 +40,29 @@ type BrewInfoPayload = {
     installed: string | null;
     outdated: boolean;
     auto_updates: boolean | null;
+    artifacts?: Array<Record<string, unknown>>;
   }>;
 };
 
+function collectCaskAppNames(casks: BrewInfoPayload['casks']): Set<string> {
+  const names = new Set<string>();
+  for (const c of casks) {
+    for (const art of c.artifacts ?? []) {
+      const appEntry = art['app'];
+      if (!Array.isArray(appEntry)) continue;
+      for (const item of appEntry) {
+        if (typeof item === 'string' && item.endsWith('.app')) {
+          names.add(item);
+        }
+      }
+    }
+  }
+  return names;
+}
+
 export async function fetchInstalled(
   onProgress: (p: RefreshProgress) => void
-): Promise<{ formulae: Package[]; casks: Package[] }> {
+): Promise<{ formulae: Package[]; casks: Package[]; caskAppNames: Set<string> }> {
   onProgress({ phase: 'updating-taps' });
   await runBrew(['update', '--quiet']);
 
@@ -78,5 +95,5 @@ export async function fetchInstalled(
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { formulae, casks };
+  return { formulae, casks, caskAppNames: collectCaskAppNames(parsed.casks) };
 }

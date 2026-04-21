@@ -7,6 +7,7 @@ import { fetchNpmGlobals } from './npm';
 import { fetchPipGlobals } from './pip';
 import { fetchVscodeExtensions } from './vscode';
 import { fetchGoBinaries } from './go';
+import { fetchInstalledApps } from './apps';
 import { readSnapshot, writeSnapshot } from './cache';
 import type { RefreshProgress, Snapshot } from '../shared/types';
 
@@ -51,11 +52,12 @@ function registerIpc(): void {
       }
     };
 
-    const { formulae, casks } = await fetchInstalled(emit);
+    const { formulae, casks, caskAppNames } = await fetchInstalled(emit);
     const npmGlobals = await fetchNpmGlobals(emit);
     const pipGlobals = await fetchPipGlobals(emit);
     const vscodeExtensions = await fetchVscodeExtensions(emit);
     const goBinaries = await fetchGoBinaries(emit);
+    const macosApps = await fetchInstalledApps(caskAppNames, emit);
     const snapshot: Snapshot = {
       refreshedAt: new Date().toISOString(),
       formulae,
@@ -63,7 +65,8 @@ function registerIpc(): void {
       npmGlobals,
       pipGlobals,
       vscodeExtensions,
-      goBinaries
+      goBinaries,
+      macosApps
     };
 
     emit({ phase: 'writing-cache' });

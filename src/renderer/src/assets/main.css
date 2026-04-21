@@ -285,6 +285,11 @@ body {
   color: var(--accent);
 }
 
+.badge-muted {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+
 .badge-stack {
   display: flex;
   flex-wrap: wrap;

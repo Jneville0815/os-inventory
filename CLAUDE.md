@@ -1,6 +1,6 @@
 # os-inventory
 
-Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date. **Currently covers Homebrew formulae, Homebrew casks, npm globals, pip packages (Homebrew Python), VS Code extensions, and Go `go install`'d binaries.** Non-brew GUI apps and non-Homebrew Python environments are deferred but designed for.
+Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date. **Currently covers Homebrew formulae, Homebrew casks, npm globals, pip packages (Homebrew Python), VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).** Non-Homebrew Python environments are deferred but designed for.
 
 ## Commands
 
@@ -43,6 +43,7 @@ src/
 │   ├── pip.ts          runPip() + fetchPipGlobals()
 │   ├── vscode.ts       `code --list-extensions` + marketplace query
 │   ├── go.ts           `go version -m` on $GOBIN + module proxy lookup
+│   ├── apps.ts         walks /Applications, reads Info.plist, fetches Sparkle appcasts
 │   └── cache.ts        atomic read/write of snapshot.json
 ├── preload/
 │   ├── index.ts        contextBridge → window.api
@@ -60,7 +61,7 @@ src/
         └── assets/main.css
 ```
 
-`Package` is a discriminated union on `kind: 'formula' | 'cask' | 'npm-global' | 'pip-global' | 'vscode-extension'` with optional `pinned` (formulae) and `autoUpdates` (casks). The renderer renders all kinds through a single `PackageTable` component, switched by a tab bar in `App.tsx`. Tabs are defined in a `TABS` config array — add a new ecosystem by extending that array and the `itemsFor` switch.
+`Package` is a discriminated union on `kind: 'formula' | 'cask' | 'npm-global' | 'pip-global' | 'vscode-extension' | 'go-install' | 'macos-app'` with optional `pinned` (formulae) and `autoUpdates` (casks). The renderer renders all kinds through a single `PackageTable` component, switched by a tab bar in `App.tsx`. Tabs are defined in a `TABS` config array — add a new ecosystem by extending that array and the `itemsFor` switch.
 
 `src/shared/types.ts` is the single source of truth for types crossing the IPC boundary. It is included in both `tsconfig.node.json` and `tsconfig.web.json`.
 
@@ -136,13 +137,25 @@ Covers binaries installed via `go install <path>@...` into `$GOBIN` (falls back 
 
 `name` is the full install path (e.g. `honnef.co/go/tools/cmd/staticcheck`) so each binary is uniquely keyed; `displayName` is the short filename shown primarily in the UI.
 
+## Desktop apps (macOS `.app` bundles)
+
+Covers arbitrary `.app` bundles outside the Homebrew ecosystem. Scans `/Applications`, `/Applications/Utilities`, and `~/Applications`, then for each bundle:
+
+1. Runs `/usr/bin/plutil -convert json -o - <bundle>/Contents/Info.plist` to read the plist. Unreadable / non-convertible plists cause the bundle to be silently skipped.
+2. Pulls `CFBundleShortVersionString` (falls back to `CFBundleVersion`) for installed; `CFBundleDisplayName` / `CFBundleName` for display; `CFBundleIdentifier` as the unique key; `SUFeedURL` for the Sparkle appcast.
+3. If a `SUFeedURL` is present, fetches it (10s `AbortController` timeout, `Accept: application/xml`) and pulls the first `<item>` from the feed. Reads `sparkle:shortVersionString` (preferred) or `sparkle:version` — both element and attribute forms — as the latest version.
+
+**Dedupe with Homebrew casks:** `src/main/brew.ts` also returns `caskAppNames: Set<string>` built from each cask's `artifacts[].app[]` field. Any bundle whose basename appears in that set is dropped — it's already shown in the Casks tab. This is why `fetchInstalled` is called before `fetchInstalledApps` in `main/index.ts`.
+
+Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave `latestVersion = ''` and render as a muted "unknown" badge rather than "up to date" — we can't claim currency if we don't have a signal. No Mac App Store apps are covered yet (would need `mas outdated` and some heuristic to recognize MAS-installed bundles).
+
 ## Persistence
 
 Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.json`. The renderer asks for it on mount and paints immediately, so there's no blank screen while brew runs on first launch of a session. Refresh is explicit (button press).
 
 ## Known gotchas
 
-- **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/opt/homebrew/bin/pip3`, `/usr/local/bin/code`, and `/opt/homebrew/bin/go`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
+- **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/opt/homebrew/bin/pip3`, `/usr/local/bin/code`, `/opt/homebrew/bin/go`, and `/usr/bin/plutil`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
 - **Pip targets the Homebrew Python only.** pyenv/asdf/system Python site-packages are NOT inspected. Multi-interpreter support is a future enhancement — likely a settings UI where the user picks which pip to query.
 - **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update, no auto-refresh timer.** Refresh is always manual.
@@ -159,7 +172,7 @@ The shape is:
 4. In the renderer, add a tab switcher above the table.
 
 Candidates to implement next:
-- **App Store / `.app` bundles** — walk `/Applications`, read `CFBundleShortVersionString` from `Info.plist`; "latest" is harder (no uniform source — probably skip or use `mas outdated` for Mac App Store only).
+- **Mac App Store apps** — use `mas list` / `mas outdated` to surface App Store-installed bundles (currently excluded because they have no Sparkle feed).
 - **Additional Python interpreters** — detect pyenv/asdf shims or let the user add paths; query each pip3 separately.
 
 ## Non-goals for v0

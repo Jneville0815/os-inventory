@@ -17,6 +17,7 @@ const PHASE_LABEL: Record<RefreshProgress['phase'], string> = {
   'querying-pip': 'Reading pip packages…',
   'querying-vscode': 'Reading VS Code extensions…',
   'querying-go': 'Reading Go binaries…',
+  'querying-apps': 'Reading desktop apps…',
   'writing-cache': 'Saving snapshot…'
 };
 
@@ -39,7 +40,8 @@ function totalPackages(snapshot: Snapshot): number {
     (snapshot.npmGlobals?.length ?? 0) +
     (snapshot.pipGlobals?.length ?? 0) +
     (snapshot.vscodeExtensions?.length ?? 0) +
-    (snapshot.goBinaries?.length ?? 0)
+    (snapshot.goBinaries?.length ?? 0) +
+    (snapshot.macosApps?.length ?? 0)
   );
 }
 

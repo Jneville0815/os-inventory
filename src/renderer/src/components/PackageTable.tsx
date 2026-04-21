@@ -12,7 +12,12 @@ type Props = {
 function statusRank(p: Package): number {
   if (p.outdated) return 0;
   if (p.pinned) return 1;
+  if (!p.latestVersion) return 3;
   return 2;
+}
+
+function sortLabel(p: Package): string {
+  return (p.displayName ?? p.name).toLowerCase();
 }
 
 export default function PackageTable({
@@ -37,7 +42,9 @@ export default function PackageTable({
       let cmp = 0;
       if (sortKey === 'status') {
         cmp = statusRank(a) - statusRank(b);
-        if (cmp === 0) cmp = a.name.localeCompare(b.name);
+        if (cmp === 0) cmp = sortLabel(a).localeCompare(sortLabel(b));
+      } else if (sortKey === 'name') {
+        cmp = sortLabel(a).localeCompare(sortLabel(b));
       } else {
         cmp = String(a[sortKey] ?? '').localeCompare(
           String(b[sortKey] ?? ''),
@@ -111,6 +118,13 @@ export default function PackageTable({
                     <span className="badge badge-outdated">outdated</span>
                   ) : p.pinned ? (
                     <span className="badge badge-pinned">pinned</span>
+                  ) : !p.latestVersion ? (
+                    <span
+                      className="badge badge-muted"
+                      title="No update feed available for this app"
+                    >
+                      unknown
+                    </span>
                   ) : (
                     <span className="badge badge-ok">up to date</span>
                   )}

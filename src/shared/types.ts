@@ -4,7 +4,8 @@ export type PackageKind =
   | 'npm-global'
   | 'pip-global'
   | 'vscode-extension'
-  | 'go-install';
+  | 'go-install'
+  | 'macos-app';
 
 export type Package = {
   kind: PackageKind;
@@ -26,6 +27,7 @@ export type Snapshot = {
   pipGlobals: Package[];
   vscodeExtensions: Package[];
   goBinaries: Package[];
+  macosApps: Package[];
 };
 
 export type RefreshPhase =
@@ -35,6 +37,7 @@ export type RefreshPhase =
   | 'querying-pip'
   | 'querying-vscode'
   | 'querying-go'
+  | 'querying-apps'
   | 'writing-cache';
 
 export type RefreshProgress = {

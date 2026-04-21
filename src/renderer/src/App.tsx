@@ -22,7 +22,8 @@ const TABS: TabDef[] = [
   { kind: 'npm-global', label: 'NPM Globals', filterNoun: 'packages' },
   { kind: 'pip-global', label: 'Pip Packages', filterNoun: 'packages' },
   { kind: 'vscode-extension', label: 'VS Code Extensions', filterNoun: 'extensions' },
-  { kind: 'go-install', label: 'Go Binaries', filterNoun: 'binaries' }
+  { kind: 'go-install', label: 'Go Binaries', filterNoun: 'binaries' },
+  { kind: 'macos-app', label: 'Desktop Apps', filterNoun: 'apps' }
 ];
 
 function countOutdated(items: Package[]): number {
@@ -44,6 +45,8 @@ function itemsFor(snapshot: Snapshot | null, kind: PackageKind): Package[] {
       return snapshot.vscodeExtensions ?? [];
     case 'go-install':
       return snapshot.goBinaries ?? [];
+    case 'macos-app':
+      return snapshot.macosApps ?? [];
   }
 }
 
