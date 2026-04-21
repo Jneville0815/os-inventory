@@ -7,6 +7,7 @@ import type {
 } from '../../shared/types';
 import RefreshBar from './components/RefreshBar';
 import PackageTable from './components/PackageTable';
+import CopyCommandButton from './components/CopyCommandButton';
 
 type Status = 'loading' | 'idle' | 'refreshing' | 'error';
 
@@ -28,6 +29,33 @@ const TABS: TabDef[] = [
 
 function countOutdated(items: Package[]): number {
   return items.filter((p) => p.outdated).length;
+}
+
+function buildUpgradeCommand(kind: PackageKind, items: Package[]): string | null {
+  switch (kind) {
+    case 'formula':
+      return 'brew upgrade --formula';
+    case 'cask':
+      return 'brew upgrade --cask';
+    case 'npm-global':
+      return 'npm update -g';
+    case 'vscode-extension':
+      return 'code --update-extensions';
+    case 'pip-global': {
+      const outdated = items.filter((p) => p.outdated).map((p) => p.name);
+      return outdated.length
+        ? `pip3 install --upgrade ${outdated.join(' ')}`
+        : '';
+    }
+    case 'go-install': {
+      const outdated = items.filter((p) => p.outdated).map((p) => p.name);
+      return outdated.length
+        ? outdated.map((p) => `go install ${p}@latest`).join(' && ')
+        : '';
+    }
+    case 'macos-app':
+      return null;
+  }
 }
 
 function itemsFor(snapshot: Snapshot | null, kind: PackageKind): Package[] {
@@ -139,6 +167,7 @@ function App(): React.JSX.Element {
           onChange={(e) => setFilter(e.target.value)}
           className="filter-input"
         />
+        <CopyCommandButton command={buildUpgradeCommand(tab, activeItems)} />
       </div>
 
       {status === 'loading' ? (
