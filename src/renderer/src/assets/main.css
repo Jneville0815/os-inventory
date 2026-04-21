@@ -1,0 +1,346 @@
+:root {
+  --bg: #fafaf9;
+  --bg-elevated: #ffffff;
+  --border: #e5e5e0;
+  --border-strong: #d0d0c8;
+  --text: #1a1a1a;
+  --text-muted: #666;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --outdated: #b45309;
+  --outdated-bg: #fef3c7;
+  --pinned: #7e22ce;
+  --pinned-bg: #f3e8ff;
+  --ok: #15803d;
+  --ok-bg: #dcfce7;
+  --error-bg: #fee2e2;
+  --error-border: #fca5a5;
+  --error-text: #991b1b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;
+    --bg-elevated: #242423;
+    --border: #333;
+    --border-strong: #444;
+    --text: #eaeaea;
+    --text-muted: #999;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --outdated: #fbbf24;
+    --outdated-bg: #422006;
+    --pinned: #c084fc;
+    --pinned-bg: #3b0764;
+    --ok: #4ade80;
+    --ok-bg: #052e16;
+    --error-bg: #450a0a;
+    --error-border: #7f1d1d;
+    --error-text: #fecaca;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  -webkit-app-region: drag;
+}
+
+.app-header button,
+.app-header input {
+  -webkit-app-region: no-drag;
+}
+
+.app-title h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.app-subtitle {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.refresh-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.refresh-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  align-items: center;
+}
+
+.refresh-meta .muted {
+  color: var(--text-muted);
+}
+
+.outdated-count {
+  color: var(--outdated);
+  font-weight: 600;
+}
+
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toolbar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.error {
+  margin: 12px 20px;
+  padding: 10px 14px;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-text);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  padding: 40px 20px;
+}
+
+.table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.formula-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.formula-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  z-index: 1;
+}
+
+.formula-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-strong);
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-muted);
+}
+
+.formula-table th:hover {
+  color: var(--text);
+}
+
+.formula-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.formula-table tbody tr:hover {
+  background: var(--bg-elevated);
+}
+
+.row-outdated {
+  background: color-mix(in srgb, var(--outdated-bg) 40%, transparent);
+}
+
+.cell-name {
+  font-weight: 500;
+}
+
+.cell-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+  max-width: 480px;
+}
+
+.mono {
+  font-family: 'SF Mono', 'Menlo', Consolas, monospace;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge-outdated {
+  background: var(--outdated-bg);
+  color: var(--outdated);
+}
+
+.badge-pinned {
+  background: var(--pinned-bg);
+  color: var(--pinned);
+}
+
+.badge-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.badge-info {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cell-token {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tab-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tab-badge {
+  background: var(--outdated-bg);
+  color: var(--outdated);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
