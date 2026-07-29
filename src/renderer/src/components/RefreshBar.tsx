@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { RefreshProgress, Snapshot } from '../../../shared/types';
 
 type Status = 'loading' | 'idle' | 'refreshing' | 'error';
@@ -14,7 +15,6 @@ const PHASE_LABEL: Record<RefreshProgress['phase'], string> = {
   'updating-taps': 'Updating Homebrew taps…',
   'querying-brew': 'Reading Homebrew packages…',
   'querying-npm': 'Reading npm globals…',
-  'querying-pip': 'Reading pip packages…',
   'querying-vscode': 'Reading VS Code extensions…',
   'querying-go': 'Reading Go binaries…',
   'querying-apps': 'Reading desktop apps…',
@@ -38,7 +38,6 @@ function totalPackages(snapshot: Snapshot): number {
     snapshot.formulae.length +
     snapshot.casks.length +
     (snapshot.npmGlobals?.length ?? 0) +
-    (snapshot.pipGlobals?.length ?? 0) +
     (snapshot.vscodeExtensions?.length ?? 0) +
     (snapshot.goBinaries?.length ?? 0) +
     (snapshot.macosApps?.length ?? 0)
@@ -54,6 +53,12 @@ export default function RefreshBar({
 }: Props): React.JSX.Element {
   const busy = status === 'refreshing';
   const label = busy && progress ? PHASE_LABEL[progress.phase] : 'Refresh';
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="refresh-bar">

@@ -1,6 +1,6 @@
 # os-inventory
 
-Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date. **Currently covers Homebrew formulae, Homebrew casks, npm globals, pip packages (Homebrew Python), VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).** Non-Homebrew Python environments are deferred but designed for.
+Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date. **Currently covers Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).**
 
 ## Commands
 
@@ -40,7 +40,6 @@ src/
 │   ├── index.ts        app lifecycle, BrowserWindow, IPC handlers
 │   ├── brew.ts         runBrew() + fetchInstalled() (formulae + casks)
 │   ├── npm.ts          runNpm() + fetchNpmGlobals()
-│   ├── pip.ts          runPip() + fetchPipGlobals()
 │   ├── vscode.ts       `code --list-extensions` + marketplace query
 │   ├── go.ts           `go version -m` on $GOBIN + module proxy lookup
 │   ├── apps.ts         walks /Applications, reads Info.plist, fetches Sparkle appcasts
@@ -61,7 +60,7 @@ src/
         └── assets/main.css
 ```
 
-`Package` is a discriminated union on `kind: 'formula' | 'cask' | 'npm-global' | 'pip-global' | 'vscode-extension' | 'go-install' | 'macos-app'` with optional `pinned` (formulae) and `autoUpdates` (casks). The renderer renders all kinds through a single `PackageTable` component, switched by a tab bar in `App.tsx`. Tabs are defined in a `TABS` config array — add a new ecosystem by extending that array and the `itemsFor` switch.
+`Package` is a discriminated union on `kind: 'formula' | 'cask' | 'npm-global' | 'vscode-extension' | 'go-install' | 'macos-app'` with optional `pinned` (formulae) and `autoUpdates` (casks). The renderer renders all kinds through a single `PackageTable` component, switched by a tab bar in `App.tsx`. Tabs are defined in a `TABS` config array — add a new ecosystem by extending that array and the `itemsFor` switch.
 
 `src/shared/types.ts` is the single source of truth for types crossing the IPC boundary. It is included in both `tsconfig.node.json` and `tsconfig.web.json`.
 
@@ -98,17 +97,6 @@ Run in parallel on every refresh:
 
 Merge: for each entry in `ls`, overlay `outdated` if present. If not outdated, `installed === latest`. `outdated: true` only when installed ≠ latest (defensive — npm's reporting can be weirdly inclusive).
 
-## pip commands used
-
-Run in parallel on every refresh:
-
-- `pip list --format=json` — installed packages `[{name, version}]`.
-- `pip list --outdated --format=json` — outdated packages `[{name, version, latest_version}]`.
-
-Merge: iterate installed list, overlay the outdated map by name. `PIP_DISABLE_PIP_VERSION_CHECK=1` suppresses pip's own "new version available" banner on stderr.
-
-Pip exits 0 for both commands regardless of outdated state, unlike npm.
-
 ## VS Code extensions
 
 Two-step on every refresh:
@@ -119,9 +107,9 @@ Two-step on every refresh:
    with body `{ filters: [{ criteria: [{filterType:7,value:"pub.name"}, …] }], flags: 17 }`.
    `flags=17` = `IncludeVersions | IncludeVersionProperties` — we need the full version history with per-version properties so we can filter out pre-releases client-side.
 
-Merge: for each installed ext, look up `publisher.extensionName` (lowercased) in the marketplace response and walk `versions` (newest-first) to find the first entry whose properties array does **not** include `{ key: "Microsoft.VisualStudio.Code.PreRelease", value: "true" }`. That's the latest stable. Missing from marketplace → `latest = installed`, not outdated.
+Merge: for each installed ext, look up `publisher.extensionName` (lowercased) in the marketplace response and walk `versions` (newest-first) to find the first entry that (a) does **not** have `Microsoft.VisualStudio.Code.PreRelease = "true"` and (b) whose `Microsoft.VisualStudio.Code.Engine` caret-range (e.g. `^1.117.0`) is satisfied by the installed VS Code (`code --version`, parsed once per refresh). That's the latest compatible stable. Missing from marketplace → `latest = installed`, not outdated.
 
-This avoids spurious "outdated" markers for stable-track users when publishers ship daily pre-releases (e.g. `ms-python.python`). Trade-off: responses are larger than with `IncludeLatestVersionOnly` (full version history per extension) — if this becomes slow, switch to chunked parallel queries in `queryMarketplace`.
+This avoids (a) spurious "outdated" markers for stable-track users when publishers ship daily pre-releases (e.g. `ms-python.python`), and (b) flagging a version that VS Code itself won't install because it requires a newer editor — `code --update-extensions` would silently skip it, making the app's claim wrong. Engine-range parsing only supports caret (`^X.Y.Z`); anything else is treated as compatible.
 
 Marketplace failure is tolerated: we log it and fall back to `latest = installed` (all marked up-to-date) so a dead network doesn't break the whole refresh.
 
@@ -155,8 +143,7 @@ Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.
 
 ## Known gotchas
 
-- **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/opt/homebrew/bin/pip3`, `/usr/local/bin/code`, `/opt/homebrew/bin/go`, and `/usr/bin/plutil`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
-- **Pip targets the Homebrew Python only.** pyenv/asdf/system Python site-packages are NOT inspected. Multi-interpreter support is a future enhancement — likely a settings UI where the user picks which pip to query.
+- **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/usr/local/bin/code`, `/opt/homebrew/bin/go`, and `/usr/bin/plutil`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
 - **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update, no auto-refresh timer.** Refresh is always manual.
 - **Not code-signed / notarized.** `build:mac` produces an unsigned bundle; Gatekeeper will complain on first launch until signing is wired.
@@ -167,13 +154,12 @@ Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.
 The shape is:
 
 1. Add `src/main/<ecosystem>.ts` exposing `fetchSomething(onProgress): Promise<Item[]>`.
-2. Extend `Snapshot` in `src/shared/types.ts` (e.g., `{ brewFormulae, npmGlobals, pip, casks }`). Each section has its own `refreshedAt` so partial refresh is possible later.
+2. Extend `Snapshot` in `src/shared/types.ts` (e.g., `{ brewFormulae, npmGlobals, casks }`). Each section has its own `refreshedAt` so partial refresh is possible later.
 3. Add an IPC channel per source (or a unified `refresh({ sources: [...] })`).
 4. In the renderer, add a tab switcher above the table.
 
 Candidates to implement next:
 - **Mac App Store apps** — use `mas list` / `mas outdated` to surface App Store-installed bundles (currently excluded because they have no Sparkle feed).
-- **Additional Python interpreters** — detect pyenv/asdf shims or let the user add paths; query each pip3 separately.
 
 ## Non-goals for v0
 

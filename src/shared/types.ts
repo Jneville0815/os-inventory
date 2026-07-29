@@ -2,7 +2,6 @@ export type PackageKind =
   | 'formula'
   | 'cask'
   | 'npm-global'
-  | 'pip-global'
   | 'vscode-extension'
   | 'go-install'
   | 'macos-app';
@@ -24,7 +23,6 @@ export type Snapshot = {
   formulae: Package[];
   casks: Package[];
   npmGlobals: Package[];
-  pipGlobals: Package[];
   vscodeExtensions: Package[];
   goBinaries: Package[];
   macosApps: Package[];
@@ -34,7 +32,6 @@ export type RefreshPhase =
   | 'updating-taps'
   | 'querying-brew'
   | 'querying-npm'
-  | 'querying-pip'
   | 'querying-vscode'
   | 'querying-go'
   | 'querying-apps'

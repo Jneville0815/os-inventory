@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Package,
   PackageKind,
@@ -17,11 +17,12 @@ type TabDef = {
   filterNoun: string;
 };
 
+const AUTO_REFRESH_MS = 60 * 60 * 1000;
+
 const TABS: TabDef[] = [
   { kind: 'formula', label: 'Brew Formulae', filterNoun: 'formulae' },
   { kind: 'cask', label: 'Brew Casks', filterNoun: 'casks' },
   { kind: 'npm-global', label: 'NPM Globals', filterNoun: 'packages' },
-  { kind: 'pip-global', label: 'Pip Packages', filterNoun: 'packages' },
   { kind: 'vscode-extension', label: 'VS Code Extensions', filterNoun: 'extensions' },
   { kind: 'go-install', label: 'Go Binaries', filterNoun: 'binaries' },
   { kind: 'macos-app', label: 'Desktop Apps', filterNoun: 'apps' }
@@ -32,6 +33,9 @@ function countOutdated(items: Package[]): number {
 }
 
 function buildUpgradeCommand(kind: PackageKind, items: Package[]): string | null {
+  if (kind === 'macos-app') return null;
+  const outdated = items.filter((p) => p.outdated);
+  if (outdated.length === 0) return '';
   switch (kind) {
     case 'formula':
       return 'brew upgrade --formula';
@@ -41,20 +45,8 @@ function buildUpgradeCommand(kind: PackageKind, items: Package[]): string | null
       return 'npm update -g';
     case 'vscode-extension':
       return 'code --update-extensions';
-    case 'pip-global': {
-      const outdated = items.filter((p) => p.outdated).map((p) => p.name);
-      return outdated.length
-        ? `pip3 install --upgrade ${outdated.join(' ')}`
-        : '';
-    }
-    case 'go-install': {
-      const outdated = items.filter((p) => p.outdated).map((p) => p.name);
-      return outdated.length
-        ? outdated.map((p) => `go install ${p}@latest`).join(' && ')
-        : '';
-    }
-    case 'macos-app':
-      return null;
+    case 'go-install':
+      return outdated.map((p) => `go install ${p.name}@latest`).join(' && ');
   }
 }
 
@@ -67,8 +59,6 @@ function itemsFor(snapshot: Snapshot | null, kind: PackageKind): Package[] {
       return snapshot.casks;
     case 'npm-global':
       return snapshot.npmGlobals ?? [];
-    case 'pip-global':
-      return snapshot.pipGlobals ?? [];
     case 'vscode-extension':
       return snapshot.vscodeExtensions ?? [];
     case 'go-install':
@@ -115,6 +105,20 @@ function App(): React.JSX.Element {
       setStatus('error');
       setProgress(null);
     }
+  }, []);
+
+  const onRefreshRef = useRef(onRefresh);
+  const statusRef = useRef(status);
+  onRefreshRef.current = onRefresh;
+  statusRef.current = status;
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (statusRef.current !== 'refreshing') {
+        void onRefreshRef.current();
+      }
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(id);
   }, []);
 
   const totalOutdated = useMemo(

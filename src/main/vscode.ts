@@ -18,6 +18,7 @@ const MARKETPLACE_URL =
 const MARKETPLACE_FLAGS = 17;
 
 const PRERELEASE_PROPERTY_KEY = 'Microsoft.VisualStudio.Code.PreRelease';
+const ENGINE_PROPERTY_KEY = 'Microsoft.VisualStudio.Code.Engine';
 
 type InstalledExtension = { id: string; version: string };
 
@@ -34,14 +35,45 @@ type MarketplaceExtension = {
   versions: MarketplaceVersion[];
 };
 
-function latestStableVersion(versions: MarketplaceVersion[]): string | undefined {
+// Caret range check. VS Code engine strings are always `^X.Y.Z` — caret means
+// same major, with [minor, patch] >= required. If the format is unrecognized
+// (rare), assume compatible rather than hide a legitimate update.
+function satisfiesEngine(engine: string, installed: number[]): boolean {
+  const m = engine.match(/^\^(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return true;
+  const req = [+m[1], +m[2], +m[3]];
+  if (installed[0] !== req[0]) return false;
+  if (installed[1] !== req[1]) return installed[1] > req[1];
+  return installed[2] >= req[2];
+}
+
+function parseVersion(v: string): number[] {
+  return v.split('.').slice(0, 3).map((n) => Number(n) || 0);
+}
+
+function latestStableVersion(
+  versions: MarketplaceVersion[],
+  installedCode: number[]
+): string | undefined {
   for (const v of versions) {
-    const isPrerelease = v.properties?.some(
+    const props = v.properties ?? [];
+    const isPrerelease = props.some(
       (p) => p.key === PRERELEASE_PROPERTY_KEY && p.value === 'true'
     );
-    if (!isPrerelease) return v.version;
+    if (isPrerelease) continue;
+    const engine = props.find((p) => p.key === ENGINE_PROPERTY_KEY)?.value;
+    if (engine && !satisfiesEngine(engine, installedCode)) continue;
+    return v.version;
   }
   return undefined;
+}
+
+async function getInstalledCodeVersion(): Promise<number[]> {
+  const { stdout } = await execFileAsync(CODE_PATH, ['--version'], {
+    maxBuffer: 64 * 1024
+  });
+  const first = stdout.split('\n')[0]?.trim() ?? '';
+  return parseVersion(first);
 }
 
 type MarketplaceResponse = {
@@ -106,7 +138,10 @@ export async function fetchVscodeExtensions(
 ): Promise<Package[]> {
   onProgress({ phase: 'querying-vscode' });
 
-  const installed = await listInstalled();
+  const [installed, installedCode] = await Promise.all([
+    listInstalled(),
+    getInstalledCodeVersion()
+  ]);
   if (installed.length === 0) return [];
 
   let marketplace: Map<string, MarketplaceExtension>;
@@ -122,7 +157,7 @@ export async function fetchVscodeExtensions(
   return installed
     .map<Package>((ext) => {
       const mp = marketplace.get(ext.id.toLowerCase());
-      const latest = (mp && latestStableVersion(mp.versions)) ?? ext.version;
+      const latest = (mp && latestStableVersion(mp.versions, installedCode)) ?? ext.version;
       return {
         kind: 'vscode-extension',
         name: ext.id,
