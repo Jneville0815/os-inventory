@@ -1,12 +1,13 @@
 import { execFile } from 'node:child_process';
 import type { Package, RefreshProgress } from '../shared/types';
+import { childEnv } from './childEnv';
 
 // Hard-coded for the same reason as BREW_PATH — GUI apps don't inherit the shell PATH.
 const NPM_PATH = '/opt/homebrew/bin/npm';
 
 const execOpts = {
   maxBuffer: 32 * 1024 * 1024,
-  env: { ...process.env, NO_COLOR: '1' }
+  env: childEnv({ NO_COLOR: '1' })
 };
 
 // npm exits 1 when any package is outdated; we still want stdout in that case.

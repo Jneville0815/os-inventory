@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Package, RefreshProgress } from '../shared/types';
+import { childEnv } from './childEnv';
 
 const execFileAsync = promisify(execFile);
 
@@ -10,12 +11,11 @@ const BREW_PATH = '/opt/homebrew/bin/brew';
 
 const execOpts = {
   maxBuffer: 64 * 1024 * 1024,
-  env: {
-    ...process.env,
+  env: childEnv({
     HOMEBREW_NO_AUTO_UPDATE: '1',
     HOMEBREW_NO_ENV_HINTS: '1',
     HOMEBREW_NO_ANALYTICS: '1'
-  }
+  })
 };
 
 async function runBrew(args: string[]): Promise<string> {

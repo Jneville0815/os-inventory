@@ -144,6 +144,7 @@ Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.
 ## Known gotchas
 
 - **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/usr/local/bin/code`, `/opt/homebrew/bin/go`, and `/usr/bin/plutil`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
+- **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with `NPM_PATH` hard-coded, a Finder-launched app fails with `env: node: No such file or directory` because launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) doesn't include `/opt/homebrew/bin`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call in `src/main/*.ts` uses instead of raw `process.env` — it widens `PATH` with `/opt/homebrew/bin`, `/opt/homebrew/sbin`, and `/usr/local/bin`. Use it for any new spawned process.
 - **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update, no auto-refresh timer.** Refresh is always manual.
 - **Not code-signed / notarized.** `build:mac` produces an unsigned bundle; Gatekeeper will complain on first launch until signing is wired.

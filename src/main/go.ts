@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Package, RefreshProgress } from '../shared/types';
+import { childEnv } from './childEnv';
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +22,9 @@ type BinaryInfo = {
 
 async function resolveGoBin(): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(GO_PATH, ['env', 'GOBIN', 'GOPATH']);
+    const { stdout } = await execFileAsync(GO_PATH, ['env', 'GOBIN', 'GOPATH'], {
+      env: childEnv()
+    });
     const [gobin, gopath] = stdout.split('\n');
     if (gobin?.trim()) return gobin.trim();
     if (gopath?.trim()) return join(gopath.trim(), 'bin');
@@ -48,7 +51,8 @@ async function listInstalledBinaries(): Promise<BinaryInfo[]> {
   // `go version -m` accepts multiple binaries at once and is tolerant of
   // non-Go files (emits a "not a Go executable" notice which our parser skips).
   const { stdout } = await execFileAsync(GO_PATH, ['version', '-m', ...paths], {
-    maxBuffer: 16 * 1024 * 1024
+    maxBuffer: 16 * 1024 * 1024,
+    env: childEnv()
   });
 
   return parseVersionOutput(stdout);

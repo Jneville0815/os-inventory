@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Package, RefreshProgress } from '../shared/types';
+import { childEnv } from './childEnv';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,7 +71,8 @@ function latestStableVersion(
 
 async function getInstalledCodeVersion(): Promise<number[]> {
   const { stdout } = await execFileAsync(CODE_PATH, ['--version'], {
-    maxBuffer: 64 * 1024
+    maxBuffer: 64 * 1024,
+    env: childEnv()
   });
   const first = stdout.split('\n')[0]?.trim() ?? '';
   return parseVersion(first);
@@ -84,7 +86,7 @@ async function listInstalled(): Promise<InstalledExtension[]> {
   const { stdout } = await execFileAsync(
     CODE_PATH,
     ['--list-extensions', '--show-versions'],
-    { maxBuffer: 4 * 1024 * 1024 }
+    { maxBuffer: 4 * 1024 * 1024, env: childEnv() }
   );
   return stdout
     .split('\n')
