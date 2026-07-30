@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: os-inventory-scaffold
+productName: OS Inventory
 directories:
   buildResources: build
 files:
