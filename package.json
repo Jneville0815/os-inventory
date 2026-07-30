@@ -4,6 +4,7 @@
   "description": "Desktop dashboard showing installed vs. latest versions across package ecosystems (Homebrew first).",
   "main": "./out/main/index.js",
   "author": "jimmyneville",
+  "license": "MIT",
   "homepage": "https://github.com/jimmyneville/os-inventory",
   "scripts": {
     "format": "prettier --write .",

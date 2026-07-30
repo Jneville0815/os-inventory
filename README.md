@@ -63,4 +63,4 @@ See [`CLAUDE.md`](./CLAUDE.md) for the full architecture breakdown, IPC contract
 
 ## License
 
-Personal project, no license file yet.
+[MIT](./LICENSE)
