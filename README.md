@@ -13,6 +13,8 @@ Covers:
 
 Built with Electron, React, and TypeScript.
 
+![OS Inventory dashboard showing the Brew Formulae tab](./resources/screenshots/dashboard.png)
+
 ## Getting started
 
 ```bash
