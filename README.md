@@ -1,4 +1,8 @@
-# OS Inventory
+<p align="center">
+  <img src="./resources/icon.png" alt="OS Inventory icon" width="128" height="128">
+</p>
+
+<h1 align="center">OS Inventory</h1>
 
 A macOS desktop dashboard that shows what's installed on your machine next to the latest available version, so you can see at a glance what's out of date.
 
