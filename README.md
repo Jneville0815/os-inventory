@@ -34,7 +34,7 @@ npm run dev
 | -------------------- | --------------------------------------------------------------------------------- |
 | `npm run dev`        | Starts main + renderer with HMR and opens the app window.                        |
 | `npm run build`      | Full typecheck + production bundle (`out/`). No packaging.                       |
-| `npm run build:mac`  | Builds and packages a `.dmg`/`.zip` for macOS via `electron-builder` (unsigned).  |
+| `npm run build:mac`  | Builds and packages a `.dmg`/`.zip` for macOS via `electron-builder`. Locally signed, not notarized. |
 | `npm run typecheck`  | `tsc --noEmit` for both the main and renderer TypeScript configs.                 |
 | `npm run lint`       | ESLint via the electron-toolkit config.                                          |
 | `npm run format`     | Prettier, applied in place.                                                      |
@@ -61,7 +61,7 @@ See [`CLAUDE.md`](./CLAUDE.md) for the full architecture breakdown, IPC contract
 
 ## Known limitations
 
-- Not code-signed or notarized — `npm run build:mac` produces an unsigned bundle, so Gatekeeper will complain on first launch.
+- Not distributable yet — `electron-builder` signs the bundle with whatever identity it finds in the local keychain, but an Apple Development certificate isn't a Developer ID, and notarization is off (`notarize: false`). `spctl` rejects the result, so it runs fine on the machine that built it and Gatekeeper will block it anywhere else. Shipping needs a Developer ID Application certificate and notarization enabled.
 - No auto-update, no auto-refresh timer, no settings UI yet.
 - Mac App Store apps aren't covered (no Sparkle feed to check against).
 

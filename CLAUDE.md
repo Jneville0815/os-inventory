@@ -8,7 +8,7 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 |------------------------|------------------------------------------------------------------|
 | `npm run dev`          | `electron-vite dev` — starts main + renderer with HMR and opens the app window. |
 | `npm run build`        | Full typecheck + production bundle (`out/`). No packaging.       |
-| `npm run build:mac`    | `electron-vite build` + `electron-builder --mac` → signed-ish `.dmg`/`.zip` in `dist/`. Not wired for signing/notarization yet. |
+| `npm run build:mac`    | `electron-vite build` + `electron-builder --mac` → `.dmg`/`.zip` in `dist/`. Signed with the local Apple Development cert; not notarized, not distributable. |
 | `npm run typecheck`    | `tsc --noEmit` for both `tsconfig.node.json` and `tsconfig.web.json`. |
 | `npm run lint`         | ESLint with the electron-toolkit config.                         |
 
@@ -147,7 +147,7 @@ Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.
 - **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with `NPM_PATH` hard-coded, a Finder-launched app fails with `env: node: No such file or directory` because launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) doesn't include `/opt/homebrew/bin`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call in `src/main/*.ts` uses instead of raw `process.env` — it widens `PATH` with `/opt/homebrew/bin`, `/opt/homebrew/sbin`, and `/usr/local/bin`. Use it for any new spawned process.
 - **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update, no auto-refresh timer.** Refresh is always manual.
-- **Not code-signed / notarized.** `build:mac` produces an unsigned bundle; Gatekeeper will complain on first launch until signing is wired.
+- **Signed, but not distributable.** `build:mac` does sign — `electron-builder` auto-discovers a signing identity in the keychain and currently picks up an *Apple Development* certificate. That's a development cert, not a **Developer ID Application** cert, and `notarize: false` in `electron-builder.yml` disables notarization. `spctl -a -t exec` rejects the output: it launches on the machine that built it, but Gatekeeper blocks it everywhere else. Shipping to other people needs a Developer ID cert plus notarization turned on. A clone with no identity in its keychain falls back to an unsigned bundle.
 - **`HOMEBREW_NO_AUTO_UPDATE=1` is set** in the brew env to prevent spurious updates inside `brew info` calls — we control update timing explicitly.
 
 ## Adding a new ecosystem (deferred scope)
@@ -164,7 +164,7 @@ Candidates to implement next:
 
 ## Non-goals for v0
 
-- No auto-update of the app itself, no code signing/notarization pipeline.
+- No auto-update of the app itself, no Developer ID signing/notarization pipeline.
 - No notifications when a new version becomes available.
 - No settings UI (brew path override, refresh cadence, etc.).
 - No cross-platform support — macOS only (Linux brew works but cask/path assumptions break; Windows is out of scope).
