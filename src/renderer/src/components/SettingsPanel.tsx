@@ -33,6 +33,7 @@ const TOOL_LABEL: Record<ToolId, string> = {
   npm: 'npm',
   pip: 'pip',
   gem: 'gem',
+  cargo: 'Cargo',
   go: 'Go'
 };
 

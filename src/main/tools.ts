@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { access, constants } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { Settings, ToolId } from '../shared/types';
 import { childEnv } from './childEnv';
 
@@ -26,6 +28,12 @@ const CANDIDATES: Record<ToolId, Partial<Record<NodeJS.Platform, string[]>>> = {
     darwin: ['/opt/homebrew/bin/pip3', '/usr/local/bin/pip3', '/usr/bin/pip3'],
     linux: ['/usr/local/bin/pip3', '/usr/bin/pip3'],
     win32: ['C:\\Python312\\Scripts\\pip.exe']
+  },
+  cargo: {
+    // rustup puts a shim in ~/.cargo/bin; the toolchain also carries a real one.
+    darwin: [join(homedir(), '.cargo', 'bin', 'cargo')],
+    linux: [join(homedir(), '.cargo', 'bin', 'cargo')],
+    win32: [join(homedir(), '.cargo', 'bin', 'cargo.exe')]
   },
   gem: {
     // macOS ships a system Ruby; a Homebrew or rbenv Ruby shadows it via PATH.
@@ -83,6 +91,7 @@ const LOOKUP_NAMES: Record<ToolId, string[]> = {
   npm: ['npm'],
   pip: ['pip3', 'pip'],
   gem: ['gem'],
+  cargo: ['cargo'],
   go: ['go']
 };
 

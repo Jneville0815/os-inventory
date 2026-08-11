@@ -2,13 +2,13 @@
 
 Desktop dashboard (macOS / Electron + React + TypeScript) that shows which of your **developer dependencies are out of date** — what's installed alongside the latest available version, at a glance.
 
-Built-in sources: **Homebrew, npm globals, Python (pip), Ruby (gem), Go binaries.** Anything else, the user adds as a custom source.
+Built-in sources: **Homebrew, npm globals, Python (pip), Ruby (gem), Rust (cargo), Go binaries.** Anything else, the user adds as a custom source.
 
 ## What this app is for
 
 **Package managers that install developer dependencies.** That's the scope line — use it to answer "should we add X?" without a judgment call.
 
-In: language and system package managers (brew, npm, pip, gem, go, and later cargo, composer, pnpm…). Out: **applications and their plugins** (VS Code extensions, JetBrains plugins), and **OS software** (system updates, Mac App Store, `/Applications` bundles, Homebrew casks).
+In: language and system package managers (brew, npm, pip, gem, cargo, go, and later composer, pnpm, pipx…). Out: **applications and their plugins** (VS Code extensions, JetBrains plugins), and **OS software** (system updates, Mac App Store, `/Applications` bundles, Homebrew casks).
 
 That boundary is the point, not an accident. A list that's only package managers reads as a *category*; nobody thinks a package manager list is telling them what editor to use. Mixing in one editor's extensions and some OS software is what made an earlier version read as one developer's personal setup — the specific tools weren't the problem, the category mixing was.
 
@@ -86,6 +86,7 @@ src/
 │       ├── npmGlobals.ts      `npm ls -g` + `npm outdated -g`
 │       ├── pip.ts             `pip list --outdated --format=json`
 │       ├── gem.ts             `gem outdated`
+│       ├── cargo.ts           `cargo install --list` + crates.io batch lookup
 │       └── goInstall.ts       `go version -m` on $GOBIN + module proxy
 ├── preload/
 │   ├── index.ts        contextBridge → window.api
@@ -172,6 +173,17 @@ CFPropertyList (2.3.6 < 4.0.0)
 ```
 
 Warnings about gems whose native extensions aren't built go to **stderr**, which we don't read, so stdout is only these lines. Current gems aren't listed at all, so every row is outdated by construction — `parseGemOutdated` sets the status directly rather than comparing versions.
+
+## Rust crates
+
+Two steps, same shape as Go — the command lists what's installed, a registry says what's latest.
+
+1. `cargo install --list`. Output is an unindented `name vX.Y.Z:` header per crate followed by indented binary names; `parseCargoList` reads the headers and ignores the rest, so a crate shipping several binaries stays one row.
+2. Batched GET to `https://crates.io/api/v1/crates?ids[]=a&ids[]=b…`, 50 crates per request. `max_stable_version` is preferred over `max_version` so pre-releases don't produce spurious "outdated" markers; a crate that has only ever published pre-releases falls back to `max_version`.
+
+**crates.io returns 403 without a descriptive `User-Agent`** — their crawler policy requires one that identifies the client and offers a way to make contact. `USER_AGENT` in `cargo.ts` carries the repo URL. Drop it and every lookup fails silently.
+
+Unknown crate names are simply absent from the response rather than erroring, so a crate installed with `cargo install --git` or `--path` gets no match and reads as current. Same trade-off as Go's pseudo-versions: better to under-report than to invent an update. A batch that fails is logged and skipped, leaving other batches to land.
 
 ## Go binaries
 
@@ -270,7 +282,6 @@ Three steps, no renderer changes:
 It then appears in Settings automatically, and existing users are unaffected until they add it.
 
 Candidates, in rough order of how many developers they'd reach:
-- **cargo** (Rust) — needs a crates.io lookup; `cargo install --list` gives no latest.
 - **pipx / uv** — same shape, via the PyPI API.
 - **pnpm / yarn / bun globals** — each has an `outdated` command.
 - **composer** (PHP) — `composer global outdated --format=json`.

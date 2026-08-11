@@ -16,6 +16,7 @@ export type BuiltInSourceId =
   | 'npm-global'
   | 'pip'
   | 'gem'
+  | 'cargo-install'
   | 'go-install';
 
 /** A source the user defined themselves. Always `custom:<slug>`. */
@@ -70,7 +71,7 @@ export type CustomSourceTest = {
 };
 
 /** An external CLI a source shells out to. Users can override where it lives. */
-export type ToolId = 'brew' | 'npm' | 'pip' | 'gem' | 'go';
+export type ToolId = 'brew' | 'npm' | 'pip' | 'gem' | 'cargo' | 'go';
 
 /**
  * `unknown` means we found no update feed for this item, so we can't claim it's

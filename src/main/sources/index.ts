@@ -9,6 +9,7 @@ import { homebrewFormula } from './homebrew';
 import { npmGlobals } from './npmGlobals';
 import { pipPackages } from './pip';
 import { rubyGems } from './gem';
+import { cargoInstall } from './cargo';
 import { goInstall } from './goInstall';
 import { makeCustomSource } from './custom';
 import type { Source } from './source';
@@ -31,6 +32,7 @@ export const BUILT_IN: Source[] = [
   npmGlobals,
   pipPackages,
   rubyGems,
+  cargoInstall,
   goInstall
 ];
 

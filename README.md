@@ -12,6 +12,7 @@ Built in support for the package managers most developers already have:
 - **npm** — globally installed packages
 - **Python** — pip packages
 - **Ruby** — installed gems
+- **Rust** — crates installed with `cargo install`
 - **Go** — binaries `go install`'d into `$GOBIN`
 
 Nothing is tracked by default. You pick what you want in Settings, and each one becomes a tab. Settings leads with what it actually finds on your machine, so you're never looking at a list of things you don't use.
@@ -51,6 +52,7 @@ Each source shells out to its native CLI and compares what's installed against t
 - **npm globals** — `npm ls -g --json` merged with `npm outdated -g --json`.
 - **Python** — `pip list --outdated --format=json`, which reports installed and latest together.
 - **Ruby** — `gem outdated`.
+- **Rust** — `cargo install --list`, with the latest stable version of each crate resolved in batch via the crates.io API.
 - **Go binaries** — `go version -m` over everything in `$GOBIN`, with the latest version resolved per module via the Go module proxy (`proxy.golang.org`).
 
 Sources run concurrently and fail independently: a missing CLI or a dead network marks that one tab and leaves the rest intact. CLI locations are detected rather than hard-coded, and every one can be overridden in Settings.
