@@ -13,6 +13,17 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 | `npm run build:mac`    | `electron-vite build` + `electron-builder --mac` → `.dmg`/`.zip` in `dist/`. Signed with the local Apple Development cert; not notarized, not distributable. |
 | `npm run typecheck`    | `tsc --noEmit` for both `tsconfig.node.json` and `tsconfig.web.json`. |
 | `npm run lint`         | ESLint with the electron-toolkit config.                         |
+| `npm test`             | Vitest, once. `npm run test:watch` to keep it running.           |
+
+## Tests
+
+`*.test.ts` files sit next to the code they cover, so `npm run typecheck` covers them too. They target the **parsers and merge rules** — the parts that silently break when an upstream tool changes its output format, which is the failure mode that produces wrong version claims rather than a visible crash.
+
+Everything under test is a pure function taking a fixture string or object; nothing spawns a process or hits the network. That's the reason `mergeNpmGlobals`, `toFormulaPackages`, `toCaskPackages`, `collectCaskAppNames`, `parseVersionOutput`, `parseAppcast`, `satisfiesEngine` and `latestStableVersion` are exported at all — keep new parsing logic separable the same way.
+
+`settings.test.ts` mocks `electron` (`vi.mock`) purely so the module can be imported; `normalizeSettings` itself touches no filesystem.
+
+Not covered: process spawning, path resolution, and IPC — verified by running the app instead.
 
 ## Architecture
 

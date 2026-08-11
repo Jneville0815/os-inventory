@@ -17,6 +17,30 @@ function runNpm(npm: string, args: string[]): Promise<string> {
 type NpmLs = { dependencies?: Record<string, { version: string }> };
 type NpmOutdated = Record<string, { current?: string; wanted?: string; latest?: string }>;
 
+/**
+ * Overlays `npm outdated` onto `npm ls`. Anything absent from `outdated` is
+ * current by definition, so installed === latest.
+ */
+export function mergeNpmGlobals(ls: NpmLs, outdated: NpmOutdated): Package[] {
+  return Object.entries(ls.dependencies ?? {})
+    .map<Package>(([name, info]) => {
+      const o = outdated[name];
+      const installed = o?.current ?? info.version;
+      const latest = o?.latest ?? info.version;
+      // Defensive: npm's outdated reporting can be weirdly inclusive — it lists
+      // packages whose current already equals latest. Only believe it when the
+      // versions genuinely differ.
+      return {
+        sourceId: 'npm-global',
+        name,
+        installedVersion: installed,
+        latestVersion: latest,
+        status: statusFor(latest, Boolean(o) && installed !== latest)
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export const npmGlobals: Source = {
   id: 'npm-global',
   label: 'npm Globals',
@@ -38,22 +62,7 @@ export const npmGlobals: Source = {
     const ls = JSON.parse(lsRaw) as NpmLs;
     const outdated = (outdatedRaw.trim() ? JSON.parse(outdatedRaw) : {}) as NpmOutdated;
 
-    return Object.entries(ls.dependencies ?? {})
-      .map<Package>(([name, info]) => {
-        const o = outdated[name];
-        const installed = o?.current ?? info.version;
-        const latest = o?.latest ?? info.version;
-        // Defensive: npm's outdated reporting can be weirdly inclusive, so only
-        // trust it when the versions genuinely differ.
-        return {
-          sourceId: 'npm-global',
-          name,
-          installedVersion: installed,
-          latestVersion: latest,
-          status: statusFor(latest, Boolean(o) && installed !== latest)
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return mergeNpmGlobals(ls, outdated);
   },
 
   upgradeCommand: (outdated) => (outdated.length ? 'npm update -g' : '')

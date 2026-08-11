@@ -52,7 +52,7 @@ export type BrewInfo = {
   caskAppNames: Set<string>;
 };
 
-function collectCaskAppNames(casks: BrewInfoPayload['casks']): Set<string> {
+export function collectCaskAppNames(casks: BrewInfoPayload['casks']): Set<string> {
   const names = new Set<string>();
   for (const c of casks) {
     for (const art of c.artifacts ?? []) {
@@ -68,6 +68,48 @@ function collectCaskAppNames(casks: BrewInfoPayload['casks']): Set<string> {
   return names;
 }
 
+export function toFormulaPackages(formulae: BrewInfoPayload['formulae']): Package[] {
+  return formulae
+    .map<Package>((f) => ({
+      sourceId: 'homebrew-formula',
+      name: f.name,
+      description: f.desc,
+      installedVersion: f.installed[0]?.version ?? '',
+      latestVersion: f.versions.stable ?? '',
+      // A pinned formula that's also outdated leads with "outdated" — the
+      // actionable fact — and keeps the pin as a badge explaining why it's stuck.
+      status: f.pinned && !f.outdated ? 'held' : statusFor(f.versions.stable ?? '', f.outdated),
+      badges:
+        f.pinned && f.outdated
+          ? [{ label: 'pinned', tone: 'muted', title: 'Held by `brew pin`' }]
+          : undefined
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function toCaskPackages(casks: BrewInfoPayload['casks']): Package[] {
+  return casks
+    .map<Package>((c) => ({
+      sourceId: 'homebrew-cask',
+      name: c.token,
+      displayName: c.name?.[0],
+      description: c.desc,
+      installedVersion: c.installed ?? '',
+      latestVersion: c.version ?? '',
+      status: statusFor(c.version ?? '', c.outdated),
+      badges: c.auto_updates
+        ? [
+            {
+              label: 'self-updates',
+              tone: 'info',
+              title: "App updates itself — brew's version tracking may lag"
+            }
+          ]
+        : undefined
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function loadBrewInfo(ctx: RefreshCtx): Promise<BrewInfo> {
   const brew = await requireTool('brew', ctx.settings);
   const run = async (args: string[]): Promise<string> =>
@@ -81,48 +123,11 @@ async function loadBrewInfo(ctx: RefreshCtx): Promise<BrewInfo> {
   ctx.note('reading installed packages');
   const parsed = JSON.parse(await run(['info', '--json=v2', '--installed'])) as BrewInfoPayload;
 
-  const formulae: Package[] = parsed.formulae
-    .map((f) => ({
-      sourceId: 'homebrew-formula' as const,
-      name: f.name,
-      description: f.desc,
-      installedVersion: f.installed[0]?.version ?? '',
-      latestVersion: f.versions.stable ?? '',
-      // A pinned formula that's also outdated leads with "outdated" — the
-      // actionable fact — and keeps the pin as a badge explaining why it's stuck.
-      status:
-        f.pinned && !f.outdated
-          ? ('held' as const)
-          : statusFor(f.versions.stable ?? '', f.outdated),
-      badges:
-        f.pinned && f.outdated
-          ? [{ label: 'pinned', tone: 'muted' as const, title: 'Held by `brew pin`' }]
-          : undefined
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const casks: Package[] = parsed.casks
-    .map((c) => ({
-      sourceId: 'homebrew-cask' as const,
-      name: c.token,
-      displayName: c.name?.[0],
-      description: c.desc,
-      installedVersion: c.installed ?? '',
-      latestVersion: c.version ?? '',
-      status: statusFor(c.version ?? '', c.outdated),
-      badges: c.auto_updates
-        ? [
-            {
-              label: 'self-updates',
-              tone: 'info' as const,
-              title: "App updates itself — brew's version tracking may lag"
-            }
-          ]
-        : undefined
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return { formulae, casks, caskAppNames: collectCaskAppNames(parsed.casks) };
+  return {
+    formulae: toFormulaPackages(parsed.formulae),
+    casks: toCaskPackages(parsed.casks),
+    caskAppNames: collectCaskAppNames(parsed.casks)
+  };
 }
 
 /**
