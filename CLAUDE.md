@@ -1,6 +1,8 @@
 # os-inventory
 
-Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date. **Currently covers Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).**
+Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date.
+
+**Nothing is tracked by default.** On first launch the user picks which *sources* to inventory in Settings; each tracked source becomes a tab, in the order they chose. Sources available today: Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).
 
 ## Commands
 
@@ -15,22 +17,25 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 ## Architecture
 
 ```
-┌─────────────────────────────┐     IPC      ┌──────────────────────────┐
-│ Renderer (React)            │◀────────────▶│ Main (Node)              │
-│  src/renderer/              │              │  src/main/               │
-│  • App, RefreshBar, Table   │              │  • spawns /opt/hb/bin/brew│
-│  • subscribes to progress   │              │  • parses brew JSON      │
-│  • reads via window.api     │              │  • read/write snapshot   │
-└─────────────────────────────┘              └──────────────────────────┘
+┌─────────────────────────────┐     IPC      ┌───────────────────────────┐
+│ Renderer (React)            │◀────────────▶│ Main (Node)               │
+│  src/renderer/              │              │  src/main/                │
+│  • tabs derived from        │              │  • source registry        │
+│    settings.sources         │              │  • spawns the CLIs        │
+│  • SettingsPanel edits them │              │  • read/write snapshot    │
+│  • reads via window.api     │              │    + settings             │
+└─────────────────────────────┘              └───────────────────────────┘
                                                         │
                                                         ▼
-                                  app.getPath('userData') / snapshot.json
-                                  (~/Library/Application Support/os-inventory)
+                              app.getPath('userData') / snapshot.json
+                                                       / settings.json
+                              (~/Library/Application Support/os-inventory)
 ```
 
 - **Main** owns all child processes and disk I/O. Renderer never touches the FS or spawns processes.
 - **Preload** (`src/preload/index.ts`) exposes a narrow `window.api` via `contextBridge` (`contextIsolation: true`, `nodeIntegration: false`, `sandbox: false`). No raw `ipcRenderer` leaks.
 - **Renderer** is a plain React 19 app — no router, no state library, no UI framework.
+- **Nothing names a specific ecosystem outside `src/main/sources/`.** `main/index.ts`, `refresh.ts` and the renderer all work off the registry.
 
 ## Layout
 
@@ -38,17 +43,25 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 src/
 ├── main/
 │   ├── index.ts        app lifecycle, BrowserWindow, IPC handlers
-│   ├── brew.ts         runBrew() + fetchInstalled() (formulae + casks)
-│   ├── npm.ts          runNpm() + fetchNpmGlobals()
-│   ├── vscode.ts       `code --list-extensions` + marketplace query
-│   ├── go.ts           `go version -m` on $GOBIN + module proxy lookup
-│   ├── apps.ts         walks /Applications, reads Info.plist, fetches Sparkle appcasts
-│   └── cache.ts        atomic read/write of snapshot.json
+│   ├── refresh.ts      runs tracked sources concurrently, isolates failures
+│   ├── settings.ts     read/write/normalize settings.json
+│   ├── cache.ts        read/write snapshot.json
+│   ├── jsonStore.ts    shared atomic JSON read/write
+│   ├── tools.ts        resolves CLI paths (override → candidates → PATH)
+│   ├── childEnv.ts     widened PATH for spawned processes
+│   └── sources/
+│       ├── source.ts          the Source contract + shared helpers
+│       ├── index.ts           SOURCES registry + describeSources()
+│       ├── homebrew.ts        shared `brew info` + formula and cask sources
+│       ├── npmGlobals.ts      `npm ls -g` + `npm outdated -g`
+│       ├── vscodeExtensions.ts `code --list-extensions` + marketplace query
+│       ├── goInstall.ts       `go version -m` on $GOBIN + module proxy
+│       └── macosApps.ts       walks /Applications, Info.plist, Sparkle appcasts
 ├── preload/
 │   ├── index.ts        contextBridge → window.api
 │   └── index.d.ts      ambient Window typing for renderer
 ├── shared/
-│   └── types.ts        Package, Snapshot, RefreshProgress, OsInventoryApi
+│   └── types.ts        Package, Snapshot, Settings, SourceDescriptor, OsInventoryApi
 └── renderer/
     ├── index.html
     └── src/
@@ -56,11 +69,19 @@ src/
         ├── App.tsx
         ├── components/
         │   ├── RefreshBar.tsx
-        │   └── PackageTable.tsx
+        │   ├── PackageTable.tsx
+        │   ├── SettingsPanel.tsx
+        │   └── CopyCommandButton.tsx
         └── assets/main.css
 ```
 
-`Package` is a discriminated union on `kind: 'formula' | 'cask' | 'npm-global' | 'vscode-extension' | 'go-install' | 'macos-app'` with optional `pinned` (formulae) and `autoUpdates` (casks). The renderer renders all kinds through a single `PackageTable` component, switched by a tab bar in `App.tsx`. Tabs are defined in a `TABS` config array — add a new ecosystem by extending that array and the `itemsFor` switch.
+## Data model
+
+`Package` carries a `sourceId` and a `status: 'outdated' | 'current' | 'held' | 'unknown'`, plus optional `badges` for source-specific annotations. `unknown` means we found no update feed and therefore can't claim currency; `held` means deliberately frozen (`brew pin` today, `apt-mark hold` / `winget pin` later). Formula pins and cask `auto_updates` are badges, not fields on `Package` — a new source can annotate rows without touching shared types.
+
+`Snapshot` is `{ schema: 2, refreshedAt, sources: Record<SourceId, SourceResult> }`. Each `SourceResult` records its own `state: 'ok' | 'error'`, `error`, `items`, and a precomputed `upgradeCommand`. A snapshot contains exactly the tracked sources — untracking one drops its data rather than leaving stale rows.
+
+The renderer renders every source through the one `PackageTable`, with tabs derived from `settings.sources`. **There is no per-ecosystem branching in the renderer.**
 
 `src/shared/types.ts` is the single source of truth for types crossing the IPC boundary. It is included in both `tsconfig.node.json` and `tsconfig.web.json`.
 
@@ -68,16 +89,18 @@ src/
 
 Defined on `window.api` via `src/preload/index.ts`:
 
-| Method                          | Channel             | Returns                 |
-|---------------------------------|---------------------|-------------------------|
-| `getSnapshot()`                 | `brew:getSnapshot`  | `Snapshot \| null`      |
-| `refresh()`                     | `brew:refresh`      | `Snapshot` (throws on failure) |
-| `onProgress(cb)`                | `brew:progress` (push) | unsubscribe function |
+| Method               | Channel                     | Returns                        |
+|----------------------|-----------------------------|--------------------------------|
+| `getSnapshot()`      | `inventory:getSnapshot`     | `Snapshot \| null`             |
+| `refresh()`          | `inventory:refresh`         | `Snapshot`                     |
+| `onProgress(cb)`     | `inventory:progress` (push) | unsubscribe function           |
+| `getSettings()`      | `inventory:getSettings`     | `Settings`                     |
+| `saveSettings(s)`    | `inventory:saveSettings`    | `Settings` (normalized)        |
+| `listSources()`      | `inventory:listSources`     | `SourceDescriptor[]`           |
 
-`refresh()` performs:
-1. `brew update --quiet` — refresh tap clones so `versions.stable` is current.
-2. `brew info --json=v2 --installed` — parse installed formulae + latest stable + outdated flag.
-3. Write `snapshot.json` atomically (temp file + rename).
+`refresh()` reads settings, runs every tracked source **concurrently**, and writes `snapshot.json` atomically. It only rejects on catastrophic failure — an individual source that throws is recorded as `state: 'error'` on its own `SourceResult`, so one missing CLI or dead network can't empty the other tabs. Concurrent calls (auto-refresh timer landing on a manual click) share one in-flight promise; see `inFlight` in `src/main/index.ts`.
+
+`listSources()` re-runs detection on every call, so a tool installed — or a path corrected — while the app is open shows up without a restart.
 
 ## Brew commands used
 
@@ -101,7 +124,7 @@ Merge: for each entry in `ls`, overlay `outdated` if present. If not outdated, `
 
 Two-step on every refresh:
 
-1. `/usr/local/bin/code --list-extensions --show-versions` — one `publisher.name@version` line per extension.
+1. `code --list-extensions --show-versions` — one `publisher.name@version` line per extension.
 2. Batched POST to the public VS Code Marketplace:
    `https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery`
    with body `{ filters: [{ criteria: [{filterType:7,value:"pub.name"}, …] }], flags: 17 }`.
@@ -133,38 +156,60 @@ Covers arbitrary `.app` bundles outside the Homebrew ecosystem. Scans `/Applicat
 2. Pulls `CFBundleShortVersionString` (falls back to `CFBundleVersion`) for installed; `CFBundleDisplayName` / `CFBundleName` for display; `CFBundleIdentifier` as the unique key; `SUFeedURL` for the Sparkle appcast.
 3. If a `SUFeedURL` is present, fetches it (10s `AbortController` timeout, `Accept: application/xml`) and pulls the first `<item>` from the feed. Reads `sparkle:shortVersionString` (preferred) or `sparkle:version` — both element and attribute forms — as the latest version.
 
-**Dedupe with Homebrew casks:** `src/main/brew.ts` also returns `caskAppNames: Set<string>` built from each cask's `artifacts[].app[]` field. Any bundle whose basename appears in that set is dropped — it's already shown in the Casks tab. This is why `fetchInstalled` is called before `fetchInstalledApps` in `main/index.ts`.
+**Dedupe with Homebrew casks:** `src/main/sources/homebrew.ts` also returns `caskAppNames: Set<string>` built from each cask's `artifacts[].app[]` field. Any bundle whose basename appears in that set is dropped — it's already shown in the Casks tab. This only applies **when the user tracks Brew Casks**; otherwise there's no Casks tab to show them in and hiding them here would lose them entirely. If the brew call fails, dedupe falls back to an empty set — the Casks tab reports its own error, and showing the apps twice beats dropping them from both.
 
 Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave `latestVersion = ''` and render as a muted "unknown" badge rather than "up to date" — we can't claim currency if we don't have a signal. No Mac App Store apps are covered yet (would need `mas outdated` and some heuristic to recognize MAS-installed bundles).
 
+## Settings
+
+`~/Library/Application Support/os-inventory/settings.json`, written atomically:
+
+```jsonc
+{
+  "schema": 1,
+  "sources": ["homebrew-formula", "npm-global"],  // tracked, in tab order. [] by default.
+  "toolPaths": { "go": "/opt/custom/go" },        // overrides; absent means auto-detect
+  "autoRefreshMinutes": 60                        // 0 = manual only
+}
+```
+
+`settings.sources` **is** the enabled set — membership means tracked, and array order is tab order. There is no separate `enabled` flag. Everything read off disk or arriving over IPC goes through `normalizeSettings()`, which drops unknown source and tool ids and clamps the interval, so a hand-edited or newer-version file can't break the app.
+
+The settings panel (`SettingsPanel.tsx`) shows **Tracked** (reorder / remove), **Available** (add), **Tool locations**, and **Refresh**. Undetected sources are still listed and still addable — detection can be wrong, and the resulting per-source error explains the problem better than a disabled button. Only sources unsupported on the current OS can't be added.
+
+Closing the panel triggers a refresh iff some tracked source has no `ok` result yet — which covers both "just added something" and "just fixed a broken tool path", without refreshing on a pure reorder.
+
 ## Persistence
 
-Snapshot JSON is stored at `~/Library/Application Support/os-inventory/snapshot.json`. The renderer asks for it on mount and paints immediately, so there's no blank screen while brew runs on first launch of a session. Refresh is explicit (button press).
+`snapshot.json` sits beside `settings.json`. The renderer asks for it on mount and paints immediately, so there's no blank screen while brew runs on first launch of a session. `readSnapshot()` returns `null` for any file whose `schema` isn't current — the cache is rebuilt by one Refresh, so there's no migration code to carry.
 
 ## Known gotchas
 
-- **CLI paths are hard-coded** to `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/npm`, `/usr/local/bin/code`, `/opt/homebrew/bin/go`, and `/usr/bin/plutil`. Reason: GUI apps on macOS don't inherit the shell's `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. When adding Intel Mac support or a configurable override, update the constants at the top of each `src/main/<eco>.ts`.
-- **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with `NPM_PATH` hard-coded, a Finder-launched app fails with `env: node: No such file or directory` because launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) doesn't include `/opt/homebrew/bin`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call in `src/main/*.ts` uses instead of raw `process.env` — it widens `PATH` with `/opt/homebrew/bin`, `/opt/homebrew/sbin`, and `/usr/local/bin`. Use it for any new spawned process.
-- **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
-- **No auto-update, no auto-refresh timer.** Refresh is always manual.
+- **CLI paths are resolved, not hard-coded** — `src/main/tools.ts` tries the user's Settings override, then a per-platform candidate list, then a `which`/`where` lookup. Reason GUI apps need this at all: macOS launchd starts them with a bare `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. Add new CLIs to `CANDIDATES` there, not as a constant in a source module. `plutil` is the one exception — it ships with macOS at a fixed path.
+- **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with an absolute npm path, a Finder-launched app fails with `env: node: No such file or directory`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call uses instead of raw `process.env`. Use it for any new spawned process.
+- **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy. It runs once per refresh no matter how many brew-backed sources are tracked — `sharedBrewInfo()` memoises on the per-refresh `ctx.shared` map.
+- **No auto-update of the app itself.** Auto-*refresh* is user-configurable and defaults to hourly.
 - **Signed, but not distributable.** `build:mac` does sign — `electron-builder` auto-discovers a signing identity in the keychain and currently picks up an *Apple Development* certificate. That's a development cert, not a **Developer ID Application** cert, and `notarize: false` in `electron-builder.yml` disables notarization. `spctl -a -t exec` rejects the output: it launches on the machine that built it, but Gatekeeper blocks it everywhere else. Shipping to other people needs a Developer ID cert plus notarization turned on. A clone with no identity in its keychain falls back to an unsigned bundle.
 - **`HOMEBREW_NO_AUTO_UPDATE=1` is set** in the brew env to prevent spurious updates inside `brew info` calls — we control update timing explicitly.
 
-## Adding a new ecosystem (deferred scope)
+## Adding a new source
 
-The shape is:
+Three steps, no renderer changes:
 
-1. Add `src/main/<ecosystem>.ts` exposing `fetchSomething(onProgress): Promise<Item[]>`.
-2. Extend `Snapshot` in `src/shared/types.ts` (e.g., `{ brewFormulae, npmGlobals, casks }`). Each section has its own `refreshedAt` so partial refresh is possible later.
-3. Add an IPC channel per source (or a unified `refresh({ sources: [...] })`).
-4. In the renderer, add a tab switcher above the table.
+1. Add the id to `SourceId` in `src/shared/types.ts` (and a new `ToolId` + entry in `CANDIDATES` in `src/main/tools.ts` if it shells out to a CLI the app doesn't already know).
+2. Write `src/main/sources/<name>.ts` exporting a `Source` — see `src/main/sources/source.ts` for the contract. Use `detectViaTool(id)` for detection, `requireTool()` to get the resolved path (it throws with a message worth showing), `statusFor()` for the status rule, and `ctx.note()` for sub-step progress.
+3. Append it to `SOURCES` in `src/main/sources/index.ts`.
+
+It then appears in Settings → Available automatically. Existing users are unaffected until they add it.
 
 Candidates to implement next:
-- **Mac App Store apps** — use `mas list` / `mas outdated` to surface App Store-installed bundles (currently excluded because they have no Sparkle feed).
+- **Windows** — winget, Scoop, Chocolatey, and installed programs from the `…\CurrentVersion\Uninstall` registry keys. npm / VS Code / Go already declare `win32` support and just need their paths verified.
+- **Linux** — apt/dpkg, dnf/rpm, pacman, Flatpak, Snap.
+- **Mac App Store apps** — `mas list` / `mas outdated`, currently excluded because they have no Sparkle feed.
 
-## Non-goals for v0
+## Non-goals for now
 
 - No auto-update of the app itself, no Developer ID signing/notarization pipeline.
 - No notifications when a new version becomes available.
-- No settings UI (brew path override, refresh cadence, etc.).
-- No cross-platform support — macOS only (Linux brew works but cask/path assumptions break; Windows is out of scope).
+- No tracking of individual hand-picked packages, and no user-defined custom source (arbitrary command + version regex) — tracking is per-ecosystem.
+- Cross-platform is *prepared for* but unproven: sources declare `platforms` and paths resolve per-OS, but only macOS is tested. Linux and Windows need their own sources plus a real run.

@@ -2,17 +2,23 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   OsInventoryApi,
   RefreshProgress,
-  Snapshot
+  Settings,
+  Snapshot,
+  SourceDescriptor
 } from '../shared/types';
 
 const api: OsInventoryApi = {
-  getSnapshot: () => ipcRenderer.invoke('brew:getSnapshot') as Promise<Snapshot | null>,
-  refresh: () => ipcRenderer.invoke('brew:refresh') as Promise<Snapshot>,
+  getSnapshot: () => ipcRenderer.invoke('inventory:getSnapshot') as Promise<Snapshot | null>,
+  refresh: () => ipcRenderer.invoke('inventory:refresh') as Promise<Snapshot>,
   onProgress: (cb) => {
     const listener = (_: unknown, progress: RefreshProgress): void => cb(progress);
-    ipcRenderer.on('brew:progress', listener);
-    return () => ipcRenderer.removeListener('brew:progress', listener);
-  }
+    ipcRenderer.on('inventory:progress', listener);
+    return () => ipcRenderer.removeListener('inventory:progress', listener);
+  },
+  getSettings: () => ipcRenderer.invoke('inventory:getSettings') as Promise<Settings>,
+  saveSettings: (settings) =>
+    ipcRenderer.invoke('inventory:saveSettings', settings) as Promise<Settings>,
+  listSources: () => ipcRenderer.invoke('inventory:listSources') as Promise<SourceDescriptor[]>
 };
 
 if (process.contextIsolated) {

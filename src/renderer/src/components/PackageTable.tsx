@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Package } from '../../../shared/types';
+import type { Package, PackageStatus } from '../../../shared/types';
 
 type SortKey = 'name' | 'installedVersion' | 'latestVersion' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -9,21 +9,43 @@ type Props = {
   filter: string;
 };
 
-function statusRank(p: Package): number {
-  if (p.outdated) return 0;
-  if (p.pinned) return 1;
-  if (!p.latestVersion) return 3;
-  return 2;
-}
+const STATUS_BADGE: Record<
+  PackageStatus,
+  { label: string; className: string; title?: string }
+> = {
+  outdated: { label: 'outdated', className: 'badge-outdated' },
+  held: {
+    label: 'held',
+    className: 'badge-pinned',
+    title: 'Deliberately frozen at this version'
+  },
+  current: { label: 'up to date', className: 'badge-ok' },
+  unknown: {
+    label: 'unknown',
+    className: 'badge-muted',
+    title: 'No update feed available for this item'
+  }
+};
+
+const STATUS_RANK: Record<PackageStatus, number> = {
+  outdated: 0,
+  held: 1,
+  current: 2,
+  unknown: 3
+};
+
+const TONE_CLASS = {
+  ok: 'badge-ok',
+  warn: 'badge-outdated',
+  info: 'badge-info',
+  muted: 'badge-muted'
+} as const;
 
 function sortLabel(p: Package): string {
   return (p.displayName ?? p.name).toLowerCase();
 }
 
-export default function PackageTable({
-  packages,
-  filter
-}: Props): React.JSX.Element {
+export default function PackageTable({ packages, filter }: Props): React.JSX.Element {
   const [sortKey, setSortKey] = useState<SortKey>('status');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -38,24 +60,21 @@ export default function PackageTable({
         )
       : packages;
 
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'status') {
-        cmp = statusRank(a) - statusRank(b);
+        cmp = STATUS_RANK[a.status] - STATUS_RANK[b.status];
         if (cmp === 0) cmp = sortLabel(a).localeCompare(sortLabel(b));
       } else if (sortKey === 'name') {
         cmp = sortLabel(a).localeCompare(sortLabel(b));
       } else {
-        cmp = String(a[sortKey] ?? '').localeCompare(
-          String(b[sortKey] ?? ''),
-          undefined,
-          { numeric: true, sensitivity: 'base' }
-        );
+        cmp = String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? ''), undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        });
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
-
-    return sorted;
   }, [packages, filter, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey): void => {
@@ -83,63 +102,57 @@ export default function PackageTable({
             <th onClick={() => toggleSort('installedVersion')}>
               Installed{arrow('installedVersion')}
             </th>
-            <th onClick={() => toggleSort('latestVersion')}>
-              Latest{arrow('latestVersion')}
-            </th>
+            <th onClick={() => toggleSort('latestVersion')}>Latest{arrow('latestVersion')}</th>
             <th onClick={() => toggleSort('status')}>Status{arrow('status')}</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((p) => (
-            <tr
-              key={p.name}
-              className={p.outdated ? 'row-outdated' : p.pinned ? 'row-pinned' : ''}
-            >
-              <td>
-                <div className="cell-name">
-                  {p.displayName && p.displayName !== p.name ? (
-                    <>
-                      {p.displayName}{' '}
-                      <span className="cell-token">({p.name})</span>
-                    </>
-                  ) : (
-                    p.name
-                  )}
-                </div>
-                {p.description && (
-                  <div className="cell-desc">{p.description}</div>
-                )}
-              </td>
-              <td className="mono">{p.installedVersion || '—'}</td>
-              <td className="mono">{p.latestVersion || '—'}</td>
-              <td>
-                <div className="badge-stack">
-                  {p.outdated ? (
-                    <span className="badge badge-outdated">outdated</span>
-                  ) : p.pinned ? (
-                    <span className="badge badge-pinned">pinned</span>
-                  ) : !p.latestVersion ? (
-                    <span
-                      className="badge badge-muted"
-                      title="No update feed available for this app"
-                    >
-                      unknown
+          {rows.map((p) => {
+            const badge = STATUS_BADGE[p.status];
+            return (
+              <tr
+                key={p.name}
+                className={
+                  p.status === 'outdated'
+                    ? 'row-outdated'
+                    : p.status === 'held'
+                      ? 'row-pinned'
+                      : ''
+                }
+              >
+                <td>
+                  <div className="cell-name">
+                    {p.displayName && p.displayName !== p.name ? (
+                      <>
+                        {p.displayName} <span className="cell-token">({p.name})</span>
+                      </>
+                    ) : (
+                      p.name
+                    )}
+                  </div>
+                  {p.description && <div className="cell-desc">{p.description}</div>}
+                </td>
+                <td className="mono">{p.installedVersion || '—'}</td>
+                <td className="mono">{p.latestVersion || '—'}</td>
+                <td>
+                  <div className="badge-stack">
+                    <span className={`badge ${badge.className}`} title={badge.title}>
+                      {badge.label}
                     </span>
-                  ) : (
-                    <span className="badge badge-ok">up to date</span>
-                  )}
-                  {p.autoUpdates && (
-                    <span
-                      className="badge badge-info"
-                      title="App self-updates — brew's version tracking may lag"
-                    >
-                      self-updates
-                    </span>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+                    {p.badges?.map((b) => (
+                      <span
+                        key={b.label}
+                        className={`badge ${TONE_CLASS[b.tone]}`}
+                        title={b.title}
+                      >
+                        {b.label}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

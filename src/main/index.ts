@@ -2,12 +2,10 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
-import { fetchInstalled } from './brew';
-import { fetchNpmGlobals } from './npm';
-import { fetchVscodeExtensions } from './vscode';
-import { fetchGoBinaries } from './go';
-import { fetchInstalledApps } from './apps';
 import { readSnapshot, writeSnapshot } from './cache';
+import { readSettings, writeSettings } from './settings';
+import { describeSources } from './sources';
+import { runRefresh } from './refresh';
 import type { RefreshProgress, Snapshot } from '../shared/types';
 
 function createWindow(): BrowserWindow {
@@ -41,35 +39,40 @@ function createWindow(): BrowserWindow {
   return mainWindow;
 }
 
-function registerIpc(): void {
-  ipcMain.handle('brew:getSnapshot', async () => readSnapshot());
+// The auto-refresh timer and an explicit click can land together; a second
+// refresh would duplicate every child process, so callers share the in-flight one.
+let inFlight: Promise<Snapshot> | null = null;
 
-  ipcMain.handle('brew:refresh', async (event): Promise<Snapshot> => {
-    const emit = (progress: RefreshProgress): void => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send('brew:progress', progress);
-      }
-    };
+function refresh(broadcast: (progress: RefreshProgress) => void): Promise<Snapshot> {
+  if (inFlight) return inFlight;
 
-    const { formulae, casks, caskAppNames } = await fetchInstalled(emit);
-    const npmGlobals = await fetchNpmGlobals(emit);
-    const vscodeExtensions = await fetchVscodeExtensions(emit);
-    const goBinaries = await fetchGoBinaries(emit);
-    const macosApps = await fetchInstalledApps(caskAppNames, emit);
-    const snapshot: Snapshot = {
-      refreshedAt: new Date().toISOString(),
-      formulae,
-      casks,
-      npmGlobals,
-      vscodeExtensions,
-      goBinaries,
-      macosApps
-    };
-
-    emit({ phase: 'writing-cache' });
+  inFlight = (async () => {
+    const settings = await readSettings();
+    const snapshot = await runRefresh(settings, broadcast);
     await writeSnapshot(snapshot);
     return snapshot;
+  })().finally(() => {
+    inFlight = null;
   });
+
+  return inFlight;
+}
+
+// Every open window follows along, not just the one that asked to refresh.
+function broadcastProgress(progress: RefreshProgress): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.webContents.isDestroyed()) win.webContents.send('inventory:progress', progress);
+  }
+}
+
+function registerIpc(): void {
+  ipcMain.handle('inventory:getSnapshot', () => readSnapshot());
+  ipcMain.handle('inventory:getSettings', () => readSettings());
+  ipcMain.handle('inventory:saveSettings', (_event, settings: unknown) =>
+    writeSettings(settings)
+  );
+  ipcMain.handle('inventory:listSources', async () => describeSources(await readSettings()));
+  ipcMain.handle('inventory:refresh', () => refresh(broadcastProgress));
 }
 
 app.whenReady().then(() => {
