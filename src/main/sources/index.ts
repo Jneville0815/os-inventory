@@ -10,6 +10,12 @@ import { npmGlobals } from './npmGlobals';
 import { pipPackages } from './pip';
 import { rubyGems } from './gem';
 import { cargoInstall } from './cargo';
+import { pipxTools } from './pipx';
+import { uvTools } from './uvTools';
+import { pnpmGlobals } from './pnpmGlobals';
+import { yarnGlobals } from './yarnGlobals';
+import { bunGlobals } from './bunGlobals';
+import { composerGlobals } from './composer';
 import { goInstall } from './goInstall';
 import { makeCustomSource } from './custom';
 import type { Source } from './source';
@@ -30,9 +36,15 @@ export { testCustomSource } from './custom';
 export const BUILT_IN: Source[] = [
   homebrewFormula,
   npmGlobals,
+  pnpmGlobals,
+  yarnGlobals,
+  bunGlobals,
   pipPackages,
+  pipxTools,
+  uvTools,
   rubyGems,
   cargoInstall,
+  composerGlobals,
   goInstall
 ];
 

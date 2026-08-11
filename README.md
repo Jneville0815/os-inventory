@@ -9,10 +9,11 @@ A macOS desktop dashboard that shows which of your **developer dependencies are 
 Built in support for the package managers most developers already have:
 
 - **Homebrew** — `brew install` formulae
-- **npm** — globally installed packages
-- **Python** — pip packages
+- **JavaScript** — global packages from npm, pnpm, Yarn or Bun
+- **Python** — pip packages, plus command-line tools from pipx or uv
 - **Ruby** — installed gems
 - **Rust** — crates installed with `cargo install`
+- **PHP** — Composer global packages
 - **Go** — binaries `go install`'d into `$GOBIN`
 
 Nothing is tracked by default. You pick what you want in Settings, and each one becomes a tab. Settings leads with what it actually finds on your machine, so you're never looking at a list of things you don't use.
@@ -49,10 +50,12 @@ npm run dev
 Each source shells out to its native CLI and compares what's installed against the latest available:
 
 - **Homebrew** — `brew update`, then `brew info --json=v2 --installed`, which computes the `outdated` flag per formula.
-- **npm globals** — `npm ls -g --json` merged with `npm outdated -g --json`.
-- **Python** — `pip list --outdated --format=json`, which reports installed and latest together.
+- **npm / pnpm globals** — the manager's own `ls` merged with its `outdated` report.
+- **Yarn / Bun globals** — `yarn global list` cross-checked against the npm registry; `bun outdated --global`.
+- **Python** — `pip list --outdated --format=json`, which reports installed and latest together. `pipx list --json` and `uv tool list` name only what's installed, so their latest versions come from PyPI.
 - **Ruby** — `gem outdated`.
 - **Rust** — `cargo install --list`, with the latest stable version of each crate resolved in batch via the crates.io API.
+- **PHP** — `composer global outdated --format=json`.
 - **Go binaries** — `go version -m` over everything in `$GOBIN`, with the latest version resolved per module via the Go module proxy (`proxy.golang.org`).
 
 Sources run concurrently and fail independently: a missing CLI or a dead network marks that one tab and leaves the rest intact. CLI locations are detected rather than hard-coded, and every one can be overridden in Settings.

@@ -31,9 +31,15 @@ type AddableEntry = {
 const TOOL_LABEL: Record<ToolId, string> = {
   brew: 'Homebrew',
   npm: 'npm',
+  pnpm: 'pnpm',
+  yarn: 'Yarn',
+  bun: 'Bun',
   pip: 'pip',
+  pipx: 'pipx',
+  uv: 'uv',
   gem: 'gem',
   cargo: 'Cargo',
+  composer: 'Composer',
   go: 'Go'
 };
 

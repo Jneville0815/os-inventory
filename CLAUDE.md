@@ -2,13 +2,25 @@
 
 Desktop dashboard (macOS / Electron + React + TypeScript) that shows which of your **developer dependencies are out of date** — what's installed alongside the latest available version, at a glance.
 
-Built-in sources: **Homebrew, npm globals, Python (pip), Ruby (gem), Rust (cargo), Go binaries.** Anything else, the user adds as a custom source.
+Built-in sources, all of them optional and none tracked by default:
+
+| | |
+|---|---|
+| Homebrew | `brew install` formulae |
+| JavaScript | npm, pnpm, Yarn and Bun globals |
+| Python | pip packages, plus pipx and uv tools |
+| Ruby | gems |
+| Rust | `cargo install` crates |
+| PHP | Composer global packages |
+| Go | `go install` binaries |
+
+Anything else, the user adds as a custom source.
 
 ## What this app is for
 
 **Package managers that install developer dependencies.** That's the scope line — use it to answer "should we add X?" without a judgment call.
 
-In: language and system package managers (brew, npm, pip, gem, cargo, go, and later composer, pnpm, pipx…). Out: **applications and their plugins** (VS Code extensions, JetBrains plugins), and **OS software** (system updates, Mac App Store, `/Applications` bundles, Homebrew casks).
+In: language and system package managers (brew, npm/pnpm/yarn/bun, pip/pipx/uv, gem, cargo, composer, go…). Out: **applications and their plugins** (VS Code extensions, JetBrains plugins), and **OS software** (system updates, Mac App Store, `/Applications` bundles, Homebrew casks).
 
 That boundary is the point, not an accident. A list that's only package managers reads as a *category*; nobody thinks a package manager list is telling them what editor to use. Mixing in one editor's extensions and some OS software is what made an earlier version read as one developer's personal setup — the specific tools weren't the problem, the category mixing was.
 
@@ -75,6 +87,7 @@ src/
 │   ├── cache.ts        read/write snapshot.json
 │   ├── jsonStore.ts    shared atomic JSON read/write
 │   ├── tools.ts        resolves CLI paths (override → candidates → PATH)
+│   ├── registry.ts     PyPI / npm latest-version lookups (concurrency-capped)
 │   ├── childEnv.ts     widened PATH for spawned processes
 │   ├── exec.ts         execTool/execToolAllowExit (handles Windows .cmd)
 │   └── sources/
@@ -84,9 +97,15 @@ src/
 │       ├── customParse.ts     regex / TSV / JSON output parsers (pure)
 │       ├── homebrew.ts        `brew update` + `brew info --json=v2 --installed`
 │       ├── npmGlobals.ts      `npm ls -g` + `npm outdated -g`
+│       ├── pnpmGlobals.ts    `pnpm ls -g` + `pnpm outdated -g`
+│       ├── yarnGlobals.ts    `yarn global list` + npm registry
+│       ├── bunGlobals.ts     `bun outdated --global` (ASCII table)
 │       ├── pip.ts             `pip list --outdated --format=json`
+│       ├── pipx.ts            `pipx list --json` + PyPI
+│       ├── uvTools.ts         `uv tool list` + PyPI
 │       ├── gem.ts             `gem outdated`
 │       ├── cargo.ts           `cargo install --list` + crates.io batch lookup
+│       ├── composer.ts        `composer global outdated --format=json`
 │       └── goInstall.ts       `go version -m` on $GOBIN + module proxy
 ├── preload/
 │   ├── index.ts        contextBridge → window.api
@@ -185,6 +204,25 @@ Two steps, same shape as Go — the command lists what's installed, a registry s
 
 Unknown crate names are simply absent from the response rather than erroring, so a crate installed with `cargo install --git` or `--path` gets no match and reads as current. Same trade-off as Go's pseudo-versions: better to under-report than to invent an update. A batch that fails is logged and skipped, leaving other batches to land.
 
+## JavaScript globals beyond npm
+
+- **pnpm** — `pnpm ls -g --json` merged with `pnpm outdated -g --format=json`, so the tab shows everything installed rather than only what's stale, matching the npm source. Both exit 1 by design (`ls` on an empty global root, `outdated` whenever anything is out of date).
+- **yarn** — `yarn global list` prints `info "name@version" has binaries:` lines and reports no latest, so versions come from the npm registry. Split the spec on the **last** `@` so scoped names keep their leading one. **Yarn 2+ removed global installs entirely**, so the source checks `yarn --version` first and fails with an explanation rather than surfacing yarn's own usage error.
+- **bun** — `bun outdated --global` prints an ASCII table and ignores `--json` (as of bun 1.3). Rows are identified by requiring the version columns to start with a digit, which excludes both the `| Package | Current |` header and the `|-----|` rules without tracking table position. Only outdated packages appear, so every row is outdated by construction.
+
+## Python tools (pipx, uv)
+
+`pip` covers libraries; `pipx` and `uv` cover command-line tools, and a developer usually has one of the latter. Neither reports a latest version, so both go through `pypiLatest()` in `registry.ts`.
+
+- **pipx** — `pipx list --json` nests each tool under its venv name; read the package name from `metadata.main_package.package` rather than the venv key, which isn't authoritative.
+- **uv** — `uv tool list` looks like cargo's output but isn't: the binary lines start with `- ` rather than being indented, so the header test has to be a positive match.
+
+PyPI's `info.version` is the latest **stable** release — django reports `6.1` while `6.1rc1` sits in the index — so prereleases don't produce spurious "outdated" markers.
+
+## PHP (Composer)
+
+`composer global outdated --format=json` reports installed and latest together, nested under `installed`. It **exits 1 with empty stdout when there's no global `composer.json` at all** — i.e. the user has Composer but no global packages. That's an empty tab, not an error, so exit 1 is allowed and empty output returns `[]`.
+
 ## Go binaries
 
 Covers binaries installed via `go install <path>@...` into `$GOBIN` (falls back to `$GOPATH/bin`, then `~/go/bin`). Steps per refresh:
@@ -281,11 +319,10 @@ Three steps, no renderer changes:
 
 It then appears in Settings automatically, and existing users are unaffected until they add it.
 
-Candidates, in rough order of how many developers they'd reach:
-- **pipx / uv** — same shape, via the PyPI API.
-- **pnpm / yarn / bun globals** — each has an `outdated` command.
-- **composer** (PHP) — `composer global outdated --format=json`.
+The mainstream language managers are covered. Remaining candidates:
 - **Windows / Linux** — `winget upgrade`, `apt list --upgradable`, `dnf check-update`. These need the platform work in `tools.ts` verified on a real machine first.
+- **Runtime version managers** — `mise outdated`, `asdf`. Arguably in scope (they install developer dependencies), arguably a different thing (they manage language *runtimes*). Decide before building.
+- **`.NET` tools, SDKMAN** — same shape as the rest, both need their real output captured first.
 
 ## Non-goals for now
 

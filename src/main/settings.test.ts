@@ -50,7 +50,7 @@ describe('normalizeSettings', () => {
 
   it('drops unknown tools, blank strings and non-strings', () => {
     const s = normalizeSettings({
-      toolPaths: { composer: '/usr/bin/composer', go: '   ', npm: 123, gem: '/usr/bin/gem' }
+      toolPaths: { maven: '/usr/bin/mvn', go: '   ', npm: 123, gem: '/usr/bin/gem' }
     });
     expect(s.toolPaths).toEqual({ gem: '/usr/bin/gem' });
   });

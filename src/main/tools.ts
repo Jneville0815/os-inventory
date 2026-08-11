@@ -24,6 +24,36 @@ const CANDIDATES: Record<ToolId, Partial<Record<NodeJS.Platform, string[]>>> = {
     linux: ['/usr/local/bin/npm', '/usr/bin/npm'],
     win32: ['C:\\Program Files\\nodejs\\npm.cmd']
   },
+  pnpm: {
+    darwin: ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm'],
+    linux: ['/usr/local/bin/pnpm', '/usr/bin/pnpm'],
+    win32: ['C:\\Program Files\\nodejs\\pnpm.cmd']
+  },
+  yarn: {
+    darwin: ['/opt/homebrew/bin/yarn', '/usr/local/bin/yarn'],
+    linux: ['/usr/local/bin/yarn', '/usr/bin/yarn'],
+    win32: ['C:\\Program Files\\nodejs\\yarn.cmd']
+  },
+  bun: {
+    darwin: [join(homedir(), '.bun', 'bin', 'bun'), '/opt/homebrew/bin/bun'],
+    linux: [join(homedir(), '.bun', 'bin', 'bun'), '/usr/local/bin/bun'],
+    win32: [join(homedir(), '.bun', 'bin', 'bun.exe')]
+  },
+  pipx: {
+    darwin: ['/opt/homebrew/bin/pipx', join(homedir(), '.local', 'bin', 'pipx')],
+    linux: [join(homedir(), '.local', 'bin', 'pipx'), '/usr/bin/pipx'],
+    win32: []
+  },
+  uv: {
+    darwin: [join(homedir(), '.local', 'bin', 'uv'), '/opt/homebrew/bin/uv'],
+    linux: [join(homedir(), '.local', 'bin', 'uv'), '/usr/local/bin/uv'],
+    win32: [join(homedir(), '.local', 'bin', 'uv.exe')]
+  },
+  composer: {
+    darwin: ['/opt/homebrew/bin/composer', '/usr/local/bin/composer'],
+    linux: ['/usr/local/bin/composer', '/usr/bin/composer'],
+    win32: ['C:\\ProgramData\\ComposerSetup\\bin\\composer.bat']
+  },
   pip: {
     darwin: ['/opt/homebrew/bin/pip3', '/usr/local/bin/pip3', '/usr/bin/pip3'],
     linux: ['/usr/local/bin/pip3', '/usr/bin/pip3'],
@@ -92,6 +122,12 @@ const LOOKUP_NAMES: Record<ToolId, string[]> = {
   pip: ['pip3', 'pip'],
   gem: ['gem'],
   cargo: ['cargo'],
+  pnpm: ['pnpm'],
+  yarn: ['yarn'],
+  bun: ['bun'],
+  pipx: ['pipx'],
+  uv: ['uv'],
+  composer: ['composer'],
   go: ['go']
 };
 

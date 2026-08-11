@@ -15,9 +15,15 @@ export type BuiltInSourceId =
   | 'homebrew-formula'
   | 'npm-global'
   | 'pip'
+  | 'pipx'
+  | 'uv-tool'
   | 'gem'
   | 'cargo-install'
-  | 'go-install';
+  | 'go-install'
+  | 'pnpm-global'
+  | 'yarn-global'
+  | 'bun-global'
+  | 'composer';
 
 /** A source the user defined themselves. Always `custom:<slug>`. */
 export type CustomSourceId = `custom:${string}`;
@@ -71,7 +77,19 @@ export type CustomSourceTest = {
 };
 
 /** An external CLI a source shells out to. Users can override where it lives. */
-export type ToolId = 'brew' | 'npm' | 'pip' | 'gem' | 'cargo' | 'go';
+export type ToolId =
+  | 'brew'
+  | 'npm'
+  | 'pnpm'
+  | 'yarn'
+  | 'bun'
+  | 'pip'
+  | 'pipx'
+  | 'uv'
+  | 'gem'
+  | 'cargo'
+  | 'composer'
+  | 'go';
 
 /**
  * `unknown` means we found no update feed for this item, so we can't claim it's

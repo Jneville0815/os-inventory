@@ -12,7 +12,10 @@ import type {
 } from '../shared/types';
 
 const FILENAME = 'settings.json';
-const TOOL_IDS: ToolId[] = ['brew', 'npm', 'pip', 'gem', 'cargo', 'go'];
+const TOOL_IDS: ToolId[] = [
+  'brew', 'npm', 'pnpm', 'yarn', 'bun',
+  'pip', 'pipx', 'uv', 'gem', 'cargo', 'composer', 'go'
+];
 const MODES: CustomSourceMode[] = ['regex', 'tsv', 'json'];
 
 const MAX_AUTO_REFRESH_MINUTES = 24 * 60;
