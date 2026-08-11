@@ -137,6 +137,27 @@ describe('parseJsonOutput', () => {
   });
 });
 
+describe('listsOnlyUpdates', () => {
+  it('marks every row outdated even with no installed version', () => {
+    const rows = parseTsvOutput('macOS 26.6.1\t\t26.6.1', ID, { listsOnlyUpdates: true });
+    expect(rows[0]).toMatchObject({ installedVersion: '', status: 'outdated' });
+  });
+
+  it('marks a row outdated even when installed equals latest', () => {
+    // The command only lists updates, so its say-so beats a version comparison.
+    const rows = parseTsvOutput('thing\t1.0\t1.0', ID, { listsOnlyUpdates: true });
+    expect(rows[0].status).toBe('outdated');
+  });
+
+  it('still emits nothing when the command found nothing', () => {
+    expect(parseTsvOutput('', ID, { listsOnlyUpdates: true })).toEqual([]);
+  });
+
+  it('is off by default, so a missing latest stays unknown', () => {
+    expect(parseTsvOutput('thing\t1.0', ID)[0].status).toBe('unknown');
+  });
+});
+
 describe('shared row handling', () => {
   it('de-duplicates by name — PackageTable keys on it', () => {
     const rows = parseTsvOutput('fd\t1.0\t1.0\nfd\t2.0\t2.0', ID);

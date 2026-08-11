@@ -88,7 +88,8 @@ export function normalizeCustomSource(input: unknown): CustomSource | null {
     mode,
     ...(mode === 'regex' ? { pattern } : {}),
     ...(cleanString(raw.upgradeCommand) ? { upgradeCommand: cleanString(raw.upgradeCommand) } : {}),
-    ...(allowExitCodes?.length ? { allowExitCodes } : {})
+    ...(allowExitCodes?.length ? { allowExitCodes } : {}),
+    ...(raw.listsOnlyUpdates === true ? { listsOnlyUpdates: true } : {})
   };
 }
 

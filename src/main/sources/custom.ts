@@ -50,7 +50,9 @@ export function makeCustomSource(config: CustomSource): Source {
     fetch: async (ctx) => {
       ctx.note(config.command);
       const { stdout } = await runCustom(config);
-      return parseCustomOutput(stdout, config.mode, config.pattern, config.id);
+      return parseCustomOutput(stdout, config.mode, config.pattern, config.id, {
+        listsOnlyUpdates: config.listsOnlyUpdates
+      });
     },
 
     upgradeCommand: config.upgradeCommand
@@ -73,7 +75,9 @@ export async function testCustomSource(config: CustomSource): Promise<CustomSour
   const rawSample = stdout.split('\n').slice(0, SAMPLE_LINES).join('\n');
 
   try {
-    const items = parseCustomOutput(stdout, config.mode, config.pattern, config.id);
+    const items = parseCustomOutput(stdout, config.mode, config.pattern, config.id, {
+      listsOnlyUpdates: config.listsOnlyUpdates
+    });
     return {
       ok: true,
       resolvedCommand: resolved,

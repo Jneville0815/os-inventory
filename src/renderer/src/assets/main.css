@@ -399,12 +399,21 @@ body {
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
+  /* Tracked sources are unbounded — scroll rather than squashing every label. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tabs::-webkit-scrollbar {
+  height: 0;
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 10px 14px;
   background: transparent;
   border: none;
@@ -666,6 +675,40 @@ body {
 .setting-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.link-button {
+  display: block;
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.source-item-dim {
+  opacity: 0.65;
+}
+
+.setting-check {
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.setting-check input {
+  margin-top: 1px;
+}
+
+.setting-check .settings-help {
+  display: inline;
+  margin: 0;
 }
 
 /* ---- Custom sources ---- */

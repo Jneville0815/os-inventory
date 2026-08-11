@@ -1,18 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import type {
   CustomSource,
+  RecipeDescriptor,
   Settings,
   SourceDescriptor,
   SourceId,
   ToolId
 } from '../../../shared/types';
+import { findRecipe, recipeToCustomSource } from '../../../shared/recipes';
 import CustomSourceForm from './CustomSourceForm';
 
 type Props = {
   settings: Settings;
   sources: SourceDescriptor[];
+  recipes: RecipeDescriptor[];
   onChange: (next: Settings) => void;
   onClose: () => void;
+};
+
+/** A row in the "Available" list, whatever it's backed by. */
+type AddableEntry = {
+  key: string;
+  label: string;
+  description: string;
+  supported: boolean;
+  detected: boolean;
+  /** Where the backing command was found. */
+  detail?: string;
+  hint?: string;
+  onAdd: () => void;
 };
 
 const TOOL_LABEL: Record<ToolId, string> = {
@@ -85,11 +101,13 @@ function ToolPathField({
 export default function SettingsPanel({
   settings,
   sources,
+  recipes,
   onChange,
   onClose
 }: Props): React.JSX.Element {
   // null = closed, 'new' = creating, otherwise the id being edited.
   const [editing, setEditing] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -108,7 +126,45 @@ export default function SettingsPanel({
     .map((id) => byId.get(id))
     .filter((s): s is SourceDescriptor => s !== undefined);
 
-  const available = sources.filter((s) => !settings.sources.includes(s.id));
+  // Everything addable, in one list: built-ins, already-defined custom sources,
+  // and library recipes not yet added. From the user's side they're the same
+  // thing — "something I could track".
+  const available: AddableEntry[] = useMemo(() => {
+    const defined = new Set(settings.customSources.map((c) => c.id));
+    const fromSources: AddableEntry[] = sources
+      .filter((s) => !settings.sources.includes(s.id))
+      .map((s) => ({
+        key: s.id,
+        label: s.label,
+        description: s.description,
+        supported: s.supported,
+        detected: s.detected,
+        detail: s.toolPath,
+        hint: s.hint,
+        onAdd: () => add(s.id)
+      }));
+
+    const fromRecipes: AddableEntry[] = recipes
+      .filter((r) => !defined.has(`custom:${r.slug}`))
+      .map((r) => ({
+        key: `recipe:${r.slug}`,
+        label: r.label,
+        description: r.description,
+        supported: r.supported,
+        detected: r.detected,
+        detail: r.commandPath,
+        hint: `Needs \`${r.command}\``,
+        onAdd: () => addRecipe(r.slug)
+      }));
+
+    return [...fromSources, ...fromRecipes];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources, recipes, settings]);
+
+  // Lead with what's actually on this machine — a list full of "not found"
+  // reads as the app telling you what you ought to have installed.
+  const detected = available.filter((e) => e.supported && e.detected);
+  const undetected = available.filter((e) => !e.supported || !e.detected);
 
   // Only offer path overrides for tools something can actually use here.
   const toolIds = useMemo(() => {
@@ -132,6 +188,18 @@ export default function SettingsPanel({
     const next = [...settings.sources];
     [next[from], next[to]] = [next[to], next[from]];
     setSources(next);
+  };
+
+  /** Adding a recipe instantiates it as an ordinary custom source, then tracks it. */
+  const addRecipe = (slug: string): void => {
+    const recipe = findRecipe(slug);
+    if (!recipe) return;
+    const source = recipeToCustomSource(recipe);
+    onChange({
+      ...settings,
+      customSources: [...settings.customSources, source],
+      sources: [...settings.sources, source.id]
+    });
   };
 
   const saveCustom = (source: CustomSource): void => {
@@ -220,33 +288,67 @@ export default function SettingsPanel({
           </section>
 
           <section className="settings-section">
-            <h3>Available</h3>
-            {available.length === 0 ? (
-              <p className="settings-empty">Everything is being tracked.</p>
+            <h3>Found on this machine</h3>
+            {detected.length === 0 ? (
+              <p className="settings-empty">
+                {available.length === 0
+                  ? 'Everything is being tracked.'
+                  : 'Nothing else detected here.'}
+              </p>
             ) : (
               <ul className="source-list">
-                {available.map((source) => {
-                  const status = statusOf(source);
-                  return (
-                    <li key={source.id} className="source-item">
-                      <div className="source-text">
-                        <div className="source-label">{source.label}</div>
-                        <div className="source-desc">{source.description}</div>
-                        <div className={`source-status source-status-${status.tone}`}>
-                          {status.text}
+                {detected.map((entry) => (
+                  <li key={entry.key} className="source-item">
+                    <div className="source-text">
+                      <div className="source-label">{entry.label}</div>
+                      <div className="source-desc">{entry.description}</div>
+                      {entry.detail && (
+                        <div className="source-status source-status-ok">
+                          Found at {entry.detail}
                         </div>
-                      </div>
-                      <button
-                        className="add-button"
-                        onClick={() => add(source.id)}
-                        disabled={!source.supported}
-                      >
-                        Add
-                      </button>
-                    </li>
-                  );
-                })}
+                      )}
+                    </div>
+                    <button className="add-button" onClick={entry.onAdd}>
+                      Add
+                    </button>
+                  </li>
+                ))}
               </ul>
+            )}
+
+            {undetected.length > 0 && (
+              <>
+                <button className="link-button" onClick={() => setShowAll(!showAll)}>
+                  {showAll
+                    ? 'Hide what isn’t installed'
+                    : `Show ${undetected.length} more that aren’t installed here`}
+                </button>
+
+                {showAll && (
+                  <ul className="source-list">
+                    {undetected.map((entry) => (
+                      <li key={entry.key} className="source-item source-item-dim">
+                        <div className="source-text">
+                          <div className="source-label">{entry.label}</div>
+                          <div className="source-desc">{entry.description}</div>
+                          <div className="source-status source-status-warn">
+                            {!entry.supported
+                              ? 'Not available on this operating system'
+                              : (entry.hint ?? 'Not found on this machine')}
+                          </div>
+                        </div>
+                        <button
+                          className="add-button"
+                          onClick={entry.onAdd}
+                          disabled={!entry.supported}
+                        >
+                          Add
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </section>
 

@@ -41,6 +41,40 @@ export type CustomSource = {
   upgradeCommand?: string;
   /** Exit codes to treat as success — `npm outdated`-style tools exit non-zero by design. */
   allowExitCodes?: number[];
+  /**
+   * The command lists *only* available updates, so every row it emits is
+   * outdated by definition. Needed for tools like `softwareupdate -l` that
+   * report what's available without saying what you currently have — without
+   * this they'd read as "up to date", which is exactly backwards.
+   */
+  listsOnlyUpdates?: boolean;
+};
+
+/**
+ * A ready-made custom source shipped with the app. Recipes are curated configs,
+ * not code — they exist so breadth doesn't mean either a biased built-in list
+ * or making users write regexes.
+ */
+export type Recipe = Omit<CustomSource, 'id'> & {
+  /** Becomes `custom:<slug>` when added. */
+  slug: string;
+  /** One line for the picker. */
+  description: string;
+  /** What this app is for: developer dependencies and OS-level software. */
+  category: 'dev' | 'os';
+  platforms: NodeJS.Platform[];
+};
+
+/** A recipe plus whether its command exists on this machine. */
+export type RecipeDescriptor = {
+  slug: string;
+  label: string;
+  description: string;
+  category: 'dev' | 'os';
+  command: string;
+  supported: boolean;
+  detected: boolean;
+  commandPath?: string;
 };
 
 /** Result of the Settings "Test" button: enough to write a pattern against. */
@@ -157,6 +191,8 @@ export type OsInventoryApi = {
   getSettings: () => Promise<Settings>;
   saveSettings: (settings: Settings) => Promise<Settings>;
   listSources: () => Promise<SourceDescriptor[]>;
+  /** The recipe library, with detection for this machine. */
+  listRecipes: () => Promise<RecipeDescriptor[]>;
   /** Runs a custom source once without saving it, for the Settings preview. */
   testCustomSource: (source: CustomSource) => Promise<CustomSourceTest>;
 };

@@ -89,6 +89,7 @@ export default function CustomSourceForm({
   const [pattern, setPattern] = useState(initial?.pattern ?? '');
   const [upgradeCommand, setUpgradeCommand] = useState(initial?.upgradeCommand ?? '');
   const [allowExit, setAllowExit] = useState((initial?.allowExitCodes ?? []).join(' '));
+  const [listsOnlyUpdates, setListsOnlyUpdates] = useState(initial?.listsOnlyUpdates ?? false);
   const [test, setTest] = useState<CustomSourceTest | null>(null);
   const [testing, setTesting] = useState(false);
 
@@ -103,7 +104,8 @@ export default function CustomSourceForm({
     ...(upgradeCommand.trim() ? { upgradeCommand: upgradeCommand.trim() } : {}),
     ...(splitArgs(allowExit).length
       ? { allowExitCodes: splitArgs(allowExit).map(Number).filter(Number.isInteger) }
-      : {})
+      : {}),
+    ...(listsOnlyUpdates ? { listsOnlyUpdates: true } : {})
   });
 
   const applyExample = (config: Omit<CustomSource, 'id'>): void => {
@@ -114,6 +116,7 @@ export default function CustomSourceForm({
     setMode(config.mode);
     setPattern(config.pattern ?? '');
     setUpgradeCommand(config.upgradeCommand ?? '');
+    setListsOnlyUpdates(config.listsOnlyUpdates ?? false);
     setTest(null);
   };
 
@@ -243,6 +246,21 @@ export default function CustomSourceForm({
           placeholder="optional — treat these as success, e.g. 1"
           onChange={(e) => setAllowExit(e.target.value)}
         />
+      </label>
+
+      <label className="setting-row setting-check">
+        <input
+          type="checkbox"
+          checked={listsOnlyUpdates}
+          onChange={(e) => setListsOnlyUpdates(e.target.checked)}
+        />
+        <span>
+          This command lists only available updates
+          <span className="settings-help">
+            {' '}
+            — every row it prints counts as outdated, even with no installed version.
+          </span>
+        </span>
       </label>
 
       {test && (

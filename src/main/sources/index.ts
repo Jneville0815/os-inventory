@@ -1,10 +1,12 @@
 import type {
   BuiltInSourceId,
+  RecipeDescriptor,
   Settings,
   SourceDescriptor,
   SourceId
 } from '../../shared/types';
-import { resetToolCache } from '../tools';
+import { RECIPES } from '../../shared/recipes';
+import { resetToolCache, resolveCommand } from '../tools';
 import { homebrewFormula, homebrewCask } from './homebrew';
 import { npmGlobals } from './npmGlobals';
 import { vscodeExtensions } from './vscodeExtensions';
@@ -74,6 +76,29 @@ export async function describeSources(settings: Settings): Promise<SourceDescrip
         detected,
         toolPath,
         hint: source.hint
+      };
+    })
+  );
+}
+
+/**
+ * The recipe library with per-machine detection, so the picker can lead with
+ * what's actually installed rather than advertising tools the user doesn't have.
+ */
+export async function describeRecipes(): Promise<RecipeDescriptor[]> {
+  return Promise.all(
+    RECIPES.map(async (recipe): Promise<RecipeDescriptor> => {
+      const supported = recipe.platforms.includes(process.platform);
+      const commandPath = supported ? await resolveCommand(recipe.command) : null;
+      return {
+        slug: recipe.slug,
+        label: recipe.label,
+        description: recipe.description,
+        category: recipe.category,
+        command: recipe.command,
+        supported,
+        detected: commandPath !== null,
+        commandPath: commandPath ?? undefined
       };
     })
   );

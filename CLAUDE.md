@@ -4,7 +4,18 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 
 **Nothing is tracked by default.** On first launch the user picks which *sources* to inventory in Settings; each tracked source becomes a tab, in the order they chose. Built-in sources: Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).
 
-**Users can also define their own sources** — a command plus a way to read its output — so an ecosystem the app has never heard of can still be tracked without a code change. See *Custom sources* below.
+Plus a **recipe library** of ready-made sources (Mac App Store, macOS Software Update, Ruby gems, pip) that add in one click, and **freeform custom sources** for anything else. See below.
+
+## What this app is for
+
+**Developer dependencies and OS-level software that can go out of date.** That's the scope line; use it to decide what belongs.
+
+In: language and package managers (brew, npm, pip, gem, cargo, go…), OS software (system updates, App Store, installed apps). Out: container images, Kubernetes plugins, editor plugins beyond VS Code — the long tail where "the latest version" stops being well defined and support questions multiply.
+
+Two rules follow from that, and they're the reason the app doesn't feel like it assumes a particular machine:
+
+- **Settings leads with what's actually installed.** Undetected sources are collapsed behind a "show N more" toggle. A list full of "not found" reads as the app telling the user what they ought to have installed.
+- **Nothing is tracked by default** — see below.
 
 ## Commands
 
@@ -199,6 +210,19 @@ The settings panel (`SettingsPanel.tsx`) shows **Tracked** (reorder / remove), *
 
 Closing the panel triggers a refresh iff some tracked source has no `ok` result yet — which covers both "just added something" and "just fixed a broken tool path", without refreshing on a pure reorder.
 
+## Recipes
+
+`src/shared/recipes.ts` holds ready-made sources — curated *configs*, not code — that the user adds in one click. They exist so breadth doesn't force a choice between a biased built-in list and making people write regexes. Adding one instantiates it as an ordinary custom source (editable afterwards) and tracks it.
+
+Two rules for adding a recipe, both enforced by `recipes.test.ts`:
+
+1. **Verify it against the tool's real output**, and paste that output into the fixtures. An unverified recipe is worse than none — the user can't distinguish a broken pattern from a clean machine.
+2. **The command must report the latest version**, or set `listsOnlyUpdates`. A command that only lists what's installed produces a tab of "unknown" rows, which is noise. This is why `pipx`, `cargo install --list` and `dotnet tool list` aren't recipes.
+
+`listsOnlyUpdates` marks a command whose every row is by definition an available update. `softwareupdate -l` needs it: it reports what's available and never what you're currently on, so without the flag its rows would read "up to date" — exactly backwards.
+
+Recipes are detected per machine (`describeRecipes()`), so the picker only advertises tools that are actually present.
+
 ## Custom sources
 
 A user-defined source is a command plus a rule for reading its stdout:
@@ -217,7 +241,7 @@ A user-defined source is a command plus a rule for reading its stdout:
 }
 ```
 
-The three modes trade generality against effort. `regex` parses a manager's native output — most have an `outdated` subcommand, which is why this covers so much. `tsv` (`name⇥installed⇥latest`) and `json` are the escape hatch: the user's own script can produce them from anything, including a registry API. Parsers live in `customParse.ts` and are pure, so they're unit-tested against fixture strings.
+The three modes trade generality against effort. `regex` parses a manager's native output — most have an `outdated` subcommand, which is why this covers so much. `tsv` (`name⇥installed⇥latest`) and `json` are the escape hatch: the user's own script can produce them from anything, including a registry API. `json` also accepts the common field aliases (`version`/`current_version` for installed, `latest_version`/`newest` for latest), so `pip list --outdated --format=json` and friends work with no wrapper. Parsers live in `customParse.ts` and are pure, so they're unit-tested against fixture strings.
 
 Row rules, same for all three modes: no `name` → the row is skipped; no `latest` → status is `unknown` rather than a false "up to date"; duplicate names are dropped (`PackageTable` keys on name); output is capped at 5000 rows.
 
@@ -249,9 +273,9 @@ Commands also carry a 60s timeout so a hung tool can't wedge a refresh.
 
 ## Adding a new source
 
-First ask whether it needs to be built in at all — if the manager has an `outdated`-style command, a user can already track it as a custom source. Built-ins earn their keep by being zero-config: detection, an upgrade command, and no pattern to write.
+Prefer a **recipe** — it's ~15 lines of config and gets the same one-click UX. A built-in is only justified when the "latest version" can't come out of a command at all. That's true of four of the six: VS Code needs a marketplace query with pre-release and engine-range filtering, Go needs the module proxy, Desktop Apps need per-app Sparkle feeds, and brew's JSON carries the pinned / self-updates badges a regex can't. Those are the ones worth hand-writing.
 
-Three steps, no renderer changes:
+If it does need to be built in, three steps, no renderer changes:
 
 1. Add the id to `SourceId` in `src/shared/types.ts` (and a new `ToolId` + entry in `CANDIDATES` in `src/main/tools.ts` if it shells out to a CLI the app doesn't already know).
 2. Write `src/main/sources/<name>.ts` exporting a `Source` — see `src/main/sources/source.ts` for the contract. Use `detectViaTool(id)` for detection, `requireTool()` to get the resolved path (it throws with a message worth showing), `statusFor()` for the status rule, and `ctx.note()` for sub-step progress.
@@ -259,10 +283,10 @@ Three steps, no renderer changes:
 
 It then appears in Settings → Available automatically. Existing users are unaffected until they add it.
 
-Candidates to implement next:
-- **Windows** — winget, Scoop, Chocolatey, and installed programs from the `…\CurrentVersion\Uninstall` registry keys. npm / VS Code / Go already declare `win32` support and just need their paths verified.
-- **Linux** — apt/dpkg, dnf/rpm, pacman, Flatpak, Snap.
-- **Mac App Store apps** — `mas list` / `mas outdated`, currently excluded because they have no Sparkle feed.
+Candidates next, most of them recipes rather than built-ins:
+- **Windows** — `winget upgrade` and `scoop status` are recipe-shaped. Installed programs from the `…\CurrentVersion\Uninstall` registry keys would need a built-in.
+- **Linux** — `apt list --upgradable`, `dnf check-update`, `flatpak remote-ls --updates` are all recipe-shaped.
+- **More dev managers** — `mise outdated`, `composer global outdated`, `cargo install-update -l`. Each needs its real output captured first (see the Recipes rules).
 
 ## Non-goals for now
 
