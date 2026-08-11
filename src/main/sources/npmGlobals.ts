@@ -1,6 +1,6 @@
-import { execFile } from 'node:child_process';
 import type { Package } from '../../shared/types';
 import { childEnv } from '../childEnv';
+import { execToolAllowExit } from '../exec';
 import { requireTool } from '../tools';
 import { detectViaTool, statusFor, type Source } from './source';
 
@@ -10,16 +10,8 @@ const execOpts = {
 };
 
 // `npm outdated` exits 1 when anything is outdated; we still want its stdout.
-function runNpmAllowStatus1(npm: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(npm, args, execOpts, (err, stdout, stderr) => {
-      if (err && err.code !== 1) {
-        reject(new Error(stderr || err.message));
-        return;
-      }
-      resolve(stdout);
-    });
-  });
+function runNpm(npm: string, args: string[]): Promise<string> {
+  return execToolAllowExit(npm, args, execOpts, [1]);
 }
 
 type NpmLs = { dependencies?: Record<string, { version: string }> };
@@ -39,8 +31,8 @@ export const npmGlobals: Source = {
     const npm = await requireTool('npm', ctx.settings);
 
     const [lsRaw, outdatedRaw] = await Promise.all([
-      runNpmAllowStatus1(npm, ['ls', '-g', '--json', '--depth=0']),
-      runNpmAllowStatus1(npm, ['outdated', '-g', '--json'])
+      runNpm(npm, ['ls', '-g', '--json', '--depth=0']),
+      runNpm(npm, ['outdated', '-g', '--json'])
     ]);
 
     const ls = JSON.parse(lsRaw) as NpmLs;

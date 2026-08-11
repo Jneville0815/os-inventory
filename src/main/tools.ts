@@ -49,14 +49,24 @@ async function isExecutable(path: string): Promise<boolean> {
   }
 }
 
+// Windows can only execute these; `where npm` lists the extensionless shell
+// script first, which would fail to spawn.
+const WINDOWS_EXECUTABLE = /\.(exe|cmd|bat|com)$/i;
+
 async function lookupOnPath(id: ToolId): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync(PATH_LOOKUP_CMD, [id], {
       env: childEnv(),
       maxBuffer: 64 * 1024
     });
-    // `where` can return several lines; the first is the one that would run.
-    return stdout.split('\n')[0]?.trim() || null;
+    const hits = stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (process.platform === 'win32') {
+      return hits.find((h) => WINDOWS_EXECUTABLE.test(h)) ?? hits[0] ?? null;
+    }
+    return hits[0] ?? null;
   } catch {
     return null;
   }

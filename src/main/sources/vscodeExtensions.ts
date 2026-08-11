@@ -1,11 +1,8 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import type { Package } from '../../shared/types';
 import { childEnv } from '../childEnv';
+import { execTool } from '../exec';
 import { requireTool } from '../tools';
 import { detectViaTool, statusFor, type Source } from './source';
-
-const execFileAsync = promisify(execFile);
 
 const MARKETPLACE_URL =
   'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery';
@@ -79,7 +76,7 @@ export function latestStableVersion(
 }
 
 async function getInstalledCodeVersion(code: string): Promise<number[]> {
-  const { stdout } = await execFileAsync(code, ['--version'], {
+  const stdout = await execTool(code, ['--version'], {
     maxBuffer: 64 * 1024,
     env: childEnv()
   });
@@ -87,7 +84,7 @@ async function getInstalledCodeVersion(code: string): Promise<number[]> {
 }
 
 async function listInstalled(code: string): Promise<InstalledExtension[]> {
-  const { stdout } = await execFileAsync(code, ['--list-extensions', '--show-versions'], {
+  const stdout = await execTool(code, ['--list-extensions', '--show-versions'], {
     maxBuffer: 4 * 1024 * 1024,
     env: childEnv()
   });

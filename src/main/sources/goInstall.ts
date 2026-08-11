@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import { promisify } from 'node:util';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { Package } from '../../shared/types';
 import { childEnv } from '../childEnv';
 import { requireTool } from '../tools';
@@ -61,8 +61,10 @@ export function parseVersionOutput(stdout: string): BinaryInfo[] {
         current = null;
         continue;
       }
+      // basename() rather than a '/' split: on Windows these are the paths we
+      // passed in, which use backslashes.
       const path = line.slice(0, colonIdx);
-      current = { binary: path.split('/').pop() ?? path };
+      current = { binary: basename(path) || path };
     } else if (current) {
       const parts = line.split('\t').filter(Boolean);
       if (parts[0] === 'path' && parts[1]) {
