@@ -667,3 +667,120 @@ body {
   outline: none;
   border-color: var(--accent);
 }
+
+/* ---- Custom sources ---- */
+
+.custom-add {
+  margin-top: 8px;
+}
+
+.source-item-form {
+  display: block;
+  padding: 12px;
+}
+
+.custom-form-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.example-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.example-row .settings-help {
+  margin: 0;
+}
+
+.example-row .ghost-button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.custom-mode-help {
+  margin: 8px 0 0 102px;
+}
+
+.custom-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.custom-form-actions .refresh-button,
+.custom-form-actions .copy-button {
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+.test-result {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid;
+}
+
+.test-ok {
+  background: var(--ok-bg);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  color: var(--ok);
+}
+
+.test-bad {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-text);
+}
+
+.test-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.test-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  color: var(--text);
+}
+
+.test-table td {
+  padding: 3px 6px 3px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.test-result details {
+  margin-top: 8px;
+  color: var(--text);
+}
+
+.test-result summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.test-raw {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 160px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Menlo', Consolas, monospace;
+  font-size: 11px;
+  white-space: pre;
+  color: var(--text);
+}

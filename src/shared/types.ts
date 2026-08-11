@@ -3,14 +3,58 @@
  * Included by both tsconfig.node.json and tsconfig.web.json.
  */
 
-/** A package ecosystem the app knows how to inventory. */
-export type SourceId =
+/** A package ecosystem shipped with the app. */
+export type BuiltInSourceId =
   | 'homebrew-formula'
   | 'homebrew-cask'
   | 'npm-global'
   | 'vscode-extension'
   | 'go-install'
   | 'macos-app';
+
+/** A source the user defined themselves. Always `custom:<slug>`. */
+export type CustomSourceId = `custom:${string}`;
+
+export type SourceId = BuiltInSourceId | CustomSourceId;
+
+/**
+ * How to turn a custom command's stdout into rows.
+ * - `regex` — apply a pattern per line, reading named groups `name`,
+ *   `installed` and `latest`. For parsing a manager's native output.
+ * - `tsv` — each line is `name<TAB>installed<TAB>latest`. The escape hatch:
+ *   a user script can produce this from anything.
+ * - `json` — stdout is a JSON array of `{ name, installed, latest }`.
+ */
+export type CustomSourceMode = 'regex' | 'tsv' | 'json';
+
+export type CustomSource = {
+  id: CustomSourceId;
+  label: string;
+  itemNoun: string;
+  /** Executable name or absolute path. Never a shell string — args stay separate. */
+  command: string;
+  args: string[];
+  mode: CustomSourceMode;
+  /** Required for `regex` mode. Named groups: name (required), installed, latest. */
+  pattern?: string;
+  /** Optional; shown behind the "Copy upgrade command" button. */
+  upgradeCommand?: string;
+  /** Exit codes to treat as success — `npm outdated`-style tools exit non-zero by design. */
+  allowExitCodes?: number[];
+};
+
+/** Result of the Settings "Test" button: enough to write a pattern against. */
+export type CustomSourceTest = {
+  ok: boolean;
+  error?: string;
+  /** Where the command actually resolved to. */
+  resolvedCommand?: string;
+  /** First lines of raw stdout, so the user can see what they're matching. */
+  rawSample?: string;
+  /** Rows successfully parsed (capped for display). */
+  items?: Package[];
+  totalItems?: number;
+};
 
 /** An external CLI a source shells out to. Users can override where it lives. */
 export type ToolId = 'brew' | 'npm' | 'code' | 'go';
@@ -70,6 +114,8 @@ export type SourceDescriptor = {
   itemNoun: string;
   description: string;
   toolId?: ToolId;
+  /** True for user-defined sources — Settings offers Edit/Delete for those. */
+  isCustom: boolean;
   /** False when this source can't work on the current OS at all. */
   supported: boolean;
   /** True when the underlying CLI was found. */
@@ -86,6 +132,8 @@ export type Settings = {
    * nothing is inventoried until it's added in Settings.
    */
   sources: SourceId[];
+  /** User-defined sources. Present here whether or not they're tracked. */
+  customSources: CustomSource[];
   /** User overrides for where a CLI lives. Empty means auto-detect. */
   toolPaths: Partial<Record<ToolId, string>>;
   /** 0 disables the timer. */
@@ -109,4 +157,6 @@ export type OsInventoryApi = {
   getSettings: () => Promise<Settings>;
   saveSettings: (settings: Settings) => Promise<Settings>;
   listSources: () => Promise<SourceDescriptor[]>;
+  /** Runs a custom source once without saving it, for the Settings preview. */
+  testCustomSource: (source: CustomSource) => Promise<CustomSourceTest>;
 };

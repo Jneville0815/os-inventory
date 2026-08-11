@@ -4,9 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { readSnapshot, writeSnapshot } from './cache';
 import { readSettings, writeSettings } from './settings';
-import { describeSources } from './sources';
+import { describeSources, testCustomSource } from './sources';
+import { normalizeCustomSource } from './settings';
 import { runRefresh } from './refresh';
-import type { RefreshProgress, Snapshot } from '../shared/types';
+import type { CustomSource, CustomSourceTest, RefreshProgress, Snapshot } from '../shared/types';
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -73,6 +74,18 @@ function registerIpc(): void {
   );
   ipcMain.handle('inventory:listSources', async () => describeSources(await readSettings()));
   ipcMain.handle('inventory:refresh', () => refresh(broadcastProgress));
+
+  ipcMain.handle(
+    'inventory:testCustomSource',
+    async (_event, candidate: unknown): Promise<CustomSourceTest> => {
+      // Validate before running: the same rules the saved config must satisfy.
+      const config = normalizeCustomSource(candidate as CustomSource);
+      if (!config) {
+        return { ok: false, error: 'Needs a name, a command, and a valid pattern in regex mode.' };
+      }
+      return testCustomSource(config);
+    }
+  );
 }
 
 app.whenReady().then(() => {

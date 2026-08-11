@@ -53,9 +53,9 @@ async function isExecutable(path: string): Promise<boolean> {
 // script first, which would fail to spawn.
 const WINDOWS_EXECUTABLE = /\.(exe|cmd|bat|com)$/i;
 
-async function lookupOnPath(id: ToolId): Promise<string | null> {
+async function lookupOnPath(name: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(PATH_LOOKUP_CMD, [id], {
+    const { stdout } = await execFileAsync(PATH_LOOKUP_CMD, [name], {
       env: childEnv(),
       maxBuffer: 64 * 1024
     });
@@ -101,6 +101,20 @@ export async function resolveTool(id: ToolId, settings: Settings): Promise<strin
   const found = await locate(id, override);
   cache.set(key, found);
   return found;
+}
+
+/**
+ * Resolves an arbitrary command for a custom source: an absolute or relative
+ * path is used as given, a bare name goes through the PATH lookup. Not cached —
+ * custom commands are edited and re-tested interactively.
+ */
+export async function resolveCommand(command: string): Promise<string | null> {
+  const trimmed = command.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('/') || trimmed.includes('\\')) {
+    return (await isExecutable(trimmed)) ? trimmed : null;
+  }
+  return lookupOnPath(trimmed);
 }
 
 /** Resolve or throw with a message worth showing in the UI. */

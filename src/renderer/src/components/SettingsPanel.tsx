@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Settings, SourceDescriptor, SourceId, ToolId } from '../../../shared/types';
+import type {
+  CustomSource,
+  Settings,
+  SourceDescriptor,
+  SourceId,
+  ToolId
+} from '../../../shared/types';
+import CustomSourceForm from './CustomSourceForm';
 
 type Props = {
   settings: Settings;
@@ -81,6 +88,9 @@ export default function SettingsPanel({
   onChange,
   onClose
 }: Props): React.JSX.Element {
+  // null = closed, 'new' = creating, otherwise the id being edited.
+  const [editing, setEditing] = useState<string | null>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
@@ -122,6 +132,24 @@ export default function SettingsPanel({
     const next = [...settings.sources];
     [next[from], next[to]] = [next[to], next[from]];
     setSources(next);
+  };
+
+  const saveCustom = (source: CustomSource): void => {
+    const existing = settings.customSources.findIndex((c) => c.id === source.id);
+    const customSources = [...settings.customSources];
+    if (existing === -1) customSources.push(source);
+    else customSources[existing] = source;
+    onChange({ ...settings, customSources });
+    setEditing(null);
+  };
+
+  const deleteCustom = (id: string): void => {
+    onChange({
+      ...settings,
+      customSources: settings.customSources.filter((c) => c.id !== id),
+      // Drop the tab too — main would strip it anyway, this just keeps the UI honest.
+      sources: settings.sources.filter((s) => s !== id)
+    });
   };
 
   return (
@@ -219,6 +247,60 @@ export default function SettingsPanel({
                   );
                 })}
               </ul>
+            )}
+          </section>
+
+          <section className="settings-section">
+            <h3>Custom sources</h3>
+            <p className="settings-help">
+              Track any package manager by naming a command and how to read its output.
+              The command runs exactly as written — nothing goes through a shell.
+            </p>
+
+            {settings.customSources.length > 0 && (
+              <ul className="source-list">
+                {settings.customSources.map((custom) =>
+                  editing === custom.id ? (
+                    <li key={custom.id} className="source-item source-item-form">
+                      <CustomSourceForm
+                        initial={custom}
+                        takenIds={settings.customSources.map((c) => c.id)}
+                        onSave={saveCustom}
+                        onCancel={() => setEditing(null)}
+                      />
+                    </li>
+                  ) : (
+                    <li key={custom.id} className="source-item">
+                      <div className="source-text">
+                        <div className="source-label">{custom.label}</div>
+                        <div className="source-desc mono">
+                          {[custom.command, ...custom.args].join(' ')}
+                        </div>
+                      </div>
+                      <button className="ghost-button" onClick={() => setEditing(custom.id)}>
+                        Edit
+                      </button>
+                      <button className="ghost-button" onClick={() => deleteCustom(custom.id)}>
+                        Delete
+                      </button>
+                    </li>
+                  )
+                )}
+              </ul>
+            )}
+
+            {editing === 'new' ? (
+              <div className="source-item source-item-form">
+                <CustomSourceForm
+                  takenIds={settings.customSources.map((c) => c.id)}
+                  onSave={saveCustom}
+                  onCancel={() => setEditing(null)}
+                />
+              </div>
+            ) : (
+              <button className="add-button custom-add" onClick={() => setEditing('new')}>
+                Add a custom source
+              </button>
             )}
           </section>
 

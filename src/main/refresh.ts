@@ -5,7 +5,7 @@ import type {
   Snapshot,
   SourceResult
 } from '../shared/types';
-import { findSource, isSupported, type RefreshCtx, type Source } from './sources';
+import { isSupported, resolveSources, type RefreshCtx, type Source } from './sources';
 import { resetToolCache } from './tools';
 
 function errorMessage(err: unknown): string {
@@ -58,8 +58,9 @@ export async function runRefresh(
 ): Promise<Snapshot> {
   resetToolCache();
 
+  const available = new Map(resolveSources(settings).map((s) => [s.id, s] as const));
   const tracked = settings.sources
-    .map((id) => findSource(id))
+    .map((id) => available.get(id))
     .filter((s): s is Source => s !== undefined && isSupported(s));
 
   // Shared across sources so the brew-backed ones trigger one `brew info` between them.

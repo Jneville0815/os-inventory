@@ -2,7 +2,9 @@
 
 Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date.
 
-**Nothing is tracked by default.** On first launch the user picks which *sources* to inventory in Settings; each tracked source becomes a tab, in the order they chose. Sources available today: Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).
+**Nothing is tracked by default.** On first launch the user picks which *sources* to inventory in Settings; each tracked source becomes a tab, in the order they chose. Built-in sources: Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).
+
+**Users can also define their own sources** — a command plus a way to read its output — so an ecosystem the app has never heard of can still be tracked without a code change. See *Custom sources* below.
 
 ## Commands
 
@@ -19,7 +21,7 @@ Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's inst
 
 `*.test.ts` files sit next to the code they cover, so `npm run typecheck` covers them too. They target the **parsers and merge rules** — the parts that silently break when an upstream tool changes its output format, which is the failure mode that produces wrong version claims rather than a visible crash.
 
-Everything under test is a pure function taking a fixture string or object; nothing spawns a process or hits the network. That's the reason `mergeNpmGlobals`, `toFormulaPackages`, `toCaskPackages`, `collectCaskAppNames`, `parseVersionOutput`, `parseAppcast`, `satisfiesEngine` and `latestStableVersion` are exported at all — keep new parsing logic separable the same way.
+Everything under test is a pure function taking a fixture string or object; nothing spawns a process or hits the network. That's the reason `mergeNpmGlobals`, `toFormulaPackages`, `toCaskPackages`, `collectCaskAppNames`, `parseVersionOutput`, `parseAppcast`, `satisfiesEngine`, `latestStableVersion`, the `customParse.ts` parsers and `splitArgs` are exported at all — keep new parsing logic separable the same way.
 
 `settings.test.ts` mocks `electron` (`vi.mock`) purely so the module can be imported; `normalizeSettings` itself touches no filesystem.
 
@@ -60,9 +62,12 @@ src/
 │   ├── jsonStore.ts    shared atomic JSON read/write
 │   ├── tools.ts        resolves CLI paths (override → candidates → PATH)
 │   ├── childEnv.ts     widened PATH for spawned processes
+│   ├── exec.ts         execTool/execToolAllowExit (handles Windows .cmd)
 │   └── sources/
 │       ├── source.ts          the Source contract + shared helpers
-│       ├── index.ts           SOURCES registry + describeSources()
+│       ├── index.ts           BUILT_IN registry + resolveSources()/describeSources()
+│       ├── custom.ts          turns a user config into a Source; testCustomSource()
+│       ├── customParse.ts     regex / TSV / JSON output parsers (pure)
 │       ├── homebrew.ts        shared `brew info` + formula and cask sources
 │       ├── npmGlobals.ts      `npm ls -g` + `npm outdated -g`
 │       ├── vscodeExtensions.ts `code --list-extensions` + marketplace query
@@ -82,7 +87,9 @@ src/
         │   ├── RefreshBar.tsx
         │   ├── PackageTable.tsx
         │   ├── SettingsPanel.tsx
+        │   ├── CustomSourceForm.tsx
         │   └── CopyCommandButton.tsx
+        ├── lib/splitArgs.ts
         └── assets/main.css
 ```
 
@@ -108,6 +115,7 @@ Defined on `window.api` via `src/preload/index.ts`:
 | `getSettings()`      | `inventory:getSettings`     | `Settings`                     |
 | `saveSettings(s)`    | `inventory:saveSettings`    | `Settings` (normalized)        |
 | `listSources()`      | `inventory:listSources`     | `SourceDescriptor[]`           |
+| `testCustomSource(s)`| `inventory:testCustomSource`| `CustomSourceTest`             |
 
 `refresh()` reads settings, runs every tracked source **concurrently**, and writes `snapshot.json` atomically. It only rejects on catastrophic failure — an individual source that throws is recorded as `state: 'error'` on its own `SourceResult`, so one missing CLI or dead network can't empty the other tabs. Concurrent calls (auto-refresh timer landing on a manual click) share one in-flight promise; see `inFlight` in `src/main/index.ts`.
 
@@ -178,7 +186,8 @@ Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave
 ```jsonc
 {
   "schema": 1,
-  "sources": ["homebrew-formula", "npm-global"],  // tracked, in tab order. [] by default.
+  "sources": ["homebrew-formula", "custom:mas"],  // tracked, in tab order. [] by default.
+  "customSources": [ /* see below */ ],           // defined, whether tracked or not
   "toolPaths": { "go": "/opt/custom/go" },        // overrides; absent means auto-detect
   "autoRefreshMinutes": 60                        // 0 = manual only
 }
@@ -189,6 +198,41 @@ Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave
 The settings panel (`SettingsPanel.tsx`) shows **Tracked** (reorder / remove), **Available** (add), **Tool locations**, and **Refresh**. Undetected sources are still listed and still addable — detection can be wrong, and the resulting per-source error explains the problem better than a disabled button. Only sources unsupported on the current OS can't be added.
 
 Closing the panel triggers a refresh iff some tracked source has no `ok` result yet — which covers both "just added something" and "just fixed a broken tool path", without refreshing on a pure reorder.
+
+## Custom sources
+
+A user-defined source is a command plus a rule for reading its stdout:
+
+```jsonc
+{
+  "id": "custom:mas",              // always custom:<slug>; the slug is derived from the label
+  "label": "Mac App Store",
+  "itemNoun": "apps",              // fills "Filter apps…"
+  "command": "mas",                // bare name (PATH lookup) or absolute path
+  "args": ["outdated"],
+  "mode": "regex",                 // regex | tsv | json
+  "pattern": "^\\s*\\d+\\s+(?<name>.+?)\\s+\\((?<installed>[^\\s)]+)\\s*->\\s*(?<latest>[^)]+)\\)",
+  "upgradeCommand": "mas upgrade", // optional
+  "allowExitCodes": [1]            // optional; for tools that exit non-zero by design
+}
+```
+
+The three modes trade generality against effort. `regex` parses a manager's native output — most have an `outdated` subcommand, which is why this covers so much. `tsv` (`name⇥installed⇥latest`) and `json` are the escape hatch: the user's own script can produce them from anything, including a registry API. Parsers live in `customParse.ts` and are pure, so they're unit-tested against fixture strings.
+
+Row rules, same for all three modes: no `name` → the row is skipped; no `latest` → status is `unknown` rather than a false "up to date"; duplicate names are dropped (`PackageTable` keys on name); output is capped at 5000 rows.
+
+`makeCustomSource()` turns the config into an ordinary `Source`, so nothing downstream distinguishes custom from built-in. The registry is `resolveSources(settings) = [...BUILT_IN, ...customSources.map(makeCustomSource)]`.
+
+**Settings → Test** runs the command once without saving and returns raw stdout alongside the parsed rows (`testCustomSource()`). Writing a pattern blind is miserable; keep this working.
+
+### Security
+
+A custom source runs whatever command it names. That is inherent to the feature and fine for something the user typed themselves — they can already run anything as their own user. Two rules keep it that way:
+
+- **No shell.** `execFile` with an args array and `shell: false`, so `;`, `|` and globs are literal argument text. A user who wants shell semantics asks for them explicitly by setting the command to `sh` with `-c`. `splitArgs()` does quote-aware splitting of the Settings field — it is not, and must not become, a shell parser.
+- **Never auto-import.** The moment custom sources can be pasted from a URL or a shared file, this becomes a malware delivery vector. If sharing is ever added, show the exact command and require explicit confirmation.
+
+Commands also carry a 60s timeout so a hung tool can't wedge a refresh.
 
 ## Persistence
 
@@ -204,6 +248,8 @@ Closing the panel triggers a refresh iff some tracked source has no `ok` result 
 - **`HOMEBREW_NO_AUTO_UPDATE=1` is set** in the brew env to prevent spurious updates inside `brew info` calls — we control update timing explicitly.
 
 ## Adding a new source
+
+First ask whether it needs to be built in at all — if the manager has an `outdated`-style command, a user can already track it as a custom source. Built-ins earn their keep by being zero-config: detection, an upgrade command, and no pattern to write.
 
 Three steps, no renderer changes:
 
@@ -222,5 +268,6 @@ Candidates to implement next:
 
 - No auto-update of the app itself, no Developer ID signing/notarization pipeline.
 - No notifications when a new version becomes available.
-- No tracking of individual hand-picked packages, and no user-defined custom source (arbitrary command + version regex) — tracking is per-ecosystem.
+- No tracking of individual hand-picked packages — tracking is per-source.
+- No sharing or importing of custom source definitions (see the security note above).
 - Cross-platform is *prepared for* but unproven: sources declare `platforms` and paths resolve per-OS, but only macOS is tested. Linux and Windows need their own sources plus a real run.

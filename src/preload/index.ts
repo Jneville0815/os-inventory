@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  CustomSourceTest,
   OsInventoryApi,
   RefreshProgress,
   Settings,
@@ -18,7 +19,9 @@ const api: OsInventoryApi = {
   getSettings: () => ipcRenderer.invoke('inventory:getSettings') as Promise<Settings>,
   saveSettings: (settings) =>
     ipcRenderer.invoke('inventory:saveSettings', settings) as Promise<Settings>,
-  listSources: () => ipcRenderer.invoke('inventory:listSources') as Promise<SourceDescriptor[]>
+  listSources: () => ipcRenderer.invoke('inventory:listSources') as Promise<SourceDescriptor[]>,
+  testCustomSource: (source) =>
+    ipcRenderer.invoke('inventory:testCustomSource', source) as Promise<CustomSourceTest>
 };
 
 if (process.contextIsolated) {

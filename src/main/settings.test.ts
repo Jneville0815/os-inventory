@@ -4,7 +4,16 @@ import { describe, it, expect, vi } from 'vitest';
 // normalization logic under test doesn't touch the filesystem.
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp/os-inventory-test' } }));
 
-const { normalizeSettings, DEFAULT_SETTINGS } = await import('./settings');
+const { normalizeSettings, normalizeCustomSource, DEFAULT_SETTINGS } = await import('./settings');
+
+const validCustom = {
+  id: 'custom:mas',
+  label: 'Mac App Store',
+  itemNoun: 'apps',
+  command: 'mas',
+  args: ['outdated'],
+  mode: 'tsv'
+};
 
 describe('normalizeSettings', () => {
   it('tracks nothing by default', () => {
@@ -59,5 +68,93 @@ describe('normalizeSettings', () => {
 
   it('always stamps the current schema', () => {
     expect(normalizeSettings({ schema: 99 }).schema).toBe(1);
+  });
+
+  it('keeps a tracked custom source once it is defined', () => {
+    const s = normalizeSettings({ sources: ['custom:mas'], customSources: [validCustom] });
+    expect(s.sources).toEqual(['custom:mas']);
+    expect(s.customSources).toHaveLength(1);
+  });
+
+  it('drops a tracked custom id with no surviving definition — that would be an empty tab', () => {
+    expect(normalizeSettings({ sources: ['custom:ghost'], customSources: [] }).sources).toEqual([]);
+    // Also when the definition itself fails validation.
+    const s = normalizeSettings({
+      sources: ['custom:mas'],
+      customSources: [{ ...validCustom, command: '' }]
+    });
+    expect(s.sources).toEqual([]);
+    expect(s.customSources).toEqual([]);
+  });
+
+  it('de-duplicates custom sources by id', () => {
+    const s = normalizeSettings({
+      customSources: [validCustom, { ...validCustom, label: 'Duplicate' }]
+    });
+    expect(s.customSources).toHaveLength(1);
+    expect(s.customSources[0].label).toBe('Mac App Store');
+  });
+
+  it('defaults customSources to empty', () => {
+    expect(normalizeSettings({}).customSources).toEqual([]);
+    expect(DEFAULT_SETTINGS.customSources).toEqual([]);
+  });
+});
+
+describe('normalizeCustomSource', () => {
+  it('accepts a well-formed source', () => {
+    expect(normalizeCustomSource(validCustom)).toMatchObject({
+      id: 'custom:mas',
+      label: 'Mac App Store',
+      command: 'mas',
+      args: ['outdated'],
+      mode: 'tsv'
+    });
+  });
+
+  it('rejects ids not in the custom: namespace', () => {
+    expect(normalizeCustomSource({ ...validCustom, id: 'mas' })).toBeNull();
+    expect(normalizeCustomSource({ ...validCustom, id: 'homebrew-formula' })).toBeNull();
+    expect(normalizeCustomSource({ ...validCustom, id: 'custom:Bad Slug' })).toBeNull();
+    expect(normalizeCustomSource({ ...validCustom, id: 'custom:' })).toBeNull();
+  });
+
+  it('requires a label and a command', () => {
+    expect(normalizeCustomSource({ ...validCustom, label: '  ' })).toBeNull();
+    expect(normalizeCustomSource({ ...validCustom, command: '' })).toBeNull();
+  });
+
+  it('requires a pattern in regex mode', () => {
+    expect(normalizeCustomSource({ ...validCustom, mode: 'regex' })).toBeNull();
+    expect(
+      normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '(?<name>\\S+)' })
+    ).toMatchObject({ mode: 'regex' });
+  });
+
+  it('rejects a pattern that will not compile, which would throw on every refresh', () => {
+    expect(normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '(?<name>' })).toBeNull();
+    expect(normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '[z-a]' })).toBeNull();
+  });
+
+  it('falls back to tsv for an unrecognised mode', () => {
+    expect(normalizeCustomSource({ ...validCustom, mode: 'yaml' })?.mode).toBe('tsv');
+  });
+
+  it('keeps args as an array of strings and drops anything else', () => {
+    expect(normalizeCustomSource({ ...validCustom, args: ['a', 3, null, 'b'] })?.args).toEqual([
+      'a',
+      'b'
+    ]);
+    expect(normalizeCustomSource({ ...validCustom, args: 'outdated' })?.args).toEqual([]);
+  });
+
+  it('keeps only integer exit codes, and omits the field when empty', () => {
+    expect(normalizeCustomSource({ ...validCustom, allowExitCodes: [1, 'x', 2.5, 2] })
+      ?.allowExitCodes).toEqual([1, 2]);
+    expect(normalizeCustomSource(validCustom)?.allowExitCodes).toBeUndefined();
+  });
+
+  it('defaults itemNoun rather than leaving it blank', () => {
+    expect(normalizeCustomSource({ ...validCustom, itemNoun: '' })?.itemNoun).toBe('items');
   });
 });

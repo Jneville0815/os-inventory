@@ -40,6 +40,8 @@ export type Source = {
   toolId?: ToolId;
   /** Shown when the tool is missing. */
   hint?: string;
+  /** True for user-defined sources — the settings UI offers Edit/Delete for these. */
+  isCustom?: boolean;
   detect: (settings: Settings) => Promise<DetectResult>;
   fetch: (ctx: RefreshCtx) => Promise<Package[]>;
   /**
