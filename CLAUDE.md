@@ -1,21 +1,24 @@
 # os-inventory
 
-Desktop dashboard (macOS / Electron + React + TypeScript) that shows what's installed on the machine alongside the latest available version, so the user can see at a glance what's out of date.
+Desktop dashboard (macOS / Electron + React + TypeScript) that shows which of your **developer dependencies are out of date** — what's installed alongside the latest available version, at a glance.
 
-**Nothing is tracked by default.** On first launch the user picks which *sources* to inventory in Settings; each tracked source becomes a tab, in the order they chose. Built-in sources: Homebrew formulae, Homebrew casks, npm globals, VS Code extensions, Go `go install`'d binaries, and macOS `.app` bundles in `/Applications` (with Sparkle-based update checks).
-
-Plus a **recipe library** of ready-made sources (Mac App Store, macOS Software Update, Ruby gems, pip) that add in one click, and **freeform custom sources** for anything else. See below.
+Built-in sources: **Homebrew, npm globals, Python (pip), Ruby (gem), Go binaries.** Anything else, the user adds as a custom source.
 
 ## What this app is for
 
-**Developer dependencies and OS-level software that can go out of date.** That's the scope line; use it to decide what belongs.
+**Package managers that install developer dependencies.** That's the scope line — use it to answer "should we add X?" without a judgment call.
 
-In: language and package managers (brew, npm, pip, gem, cargo, go…), OS software (system updates, App Store, installed apps). Out: container images, Kubernetes plugins, editor plugins beyond VS Code — the long tail where "the latest version" stops being well defined and support questions multiply.
+In: language and system package managers (brew, npm, pip, gem, go, and later cargo, composer, pnpm…). Out: **applications and their plugins** (VS Code extensions, JetBrains plugins), and **OS software** (system updates, Mac App Store, `/Applications` bundles, Homebrew casks).
 
-Two rules follow from that, and they're the reason the app doesn't feel like it assumes a particular machine:
+That boundary is the point, not an accident. A list that's only package managers reads as a *category*; nobody thinks a package manager list is telling them what editor to use. Mixing in one editor's extensions and some OS software is what made an earlier version read as one developer's personal setup — the specific tools weren't the problem, the category mixing was.
 
-- **Settings leads with what's actually installed.** Undetected sources are collapsed behind a "show N more" toggle. A list full of "not found" reads as the app telling the user what they ought to have installed.
-- **Nothing is tracked by default** — see below.
+Three rules follow, and together they're why the app shouldn't feel like it assumes a particular machine:
+
+- **Nothing is tracked by default.** On first launch the user picks; each tracked source becomes a tab, in their order.
+- **Settings leads with what's actually installed.** Undetected sources collapse behind a "show N more" toggle, so a Rust developer with no Go install never sees Go.
+- **Custom sources cover the rest**, so the answer to "do you support X?" is never no.
+
+Deleted in service of this, and recoverable from git history if the boundary ever moves: the VS Code extension source (marketplace query with pre-release and engine-range filtering), the macOS `.app`/Sparkle source, the Homebrew cask source, and a recipe library of one-click OS-software configs.
 
 ## Commands
 
@@ -79,11 +82,11 @@ src/
 │       ├── index.ts           BUILT_IN registry + resolveSources()/describeSources()
 │       ├── custom.ts          turns a user config into a Source; testCustomSource()
 │       ├── customParse.ts     regex / TSV / JSON output parsers (pure)
-│       ├── homebrew.ts        shared `brew info` + formula and cask sources
+│       ├── homebrew.ts        `brew update` + `brew info --json=v2 --installed`
 │       ├── npmGlobals.ts      `npm ls -g` + `npm outdated -g`
-│       ├── vscodeExtensions.ts `code --list-extensions` + marketplace query
-│       ├── goInstall.ts       `go version -m` on $GOBIN + module proxy
-│       └── macosApps.ts       walks /Applications, Info.plist, Sparkle appcasts
+│       ├── pip.ts             `pip list --outdated --format=json`
+│       ├── gem.ts             `gem outdated`
+│       └── goInstall.ts       `go version -m` on $GOBIN + module proxy
 ├── preload/
 │   ├── index.ts        contextBridge → window.api
 │   └── index.d.ts      ambient Window typing for renderer
@@ -106,7 +109,7 @@ src/
 
 ## Data model
 
-`Package` carries a `sourceId` and a `status: 'outdated' | 'current' | 'held' | 'unknown'`, plus optional `badges` for source-specific annotations. `unknown` means we found no update feed and therefore can't claim currency; `held` means deliberately frozen (`brew pin` today, `apt-mark hold` / `winget pin` later). Formula pins and cask `auto_updates` are badges, not fields on `Package` — a new source can annotate rows without touching shared types.
+`Package` carries a `sourceId` and a `status: 'outdated' | 'current' | 'held' | 'unknown'`, plus optional `badges` for source-specific annotations. `unknown` means we found no update feed and therefore can't claim currency; `held` means deliberately frozen (`brew pin` today, `apt-mark hold` / `winget pin` later). A Homebrew pin is a badge rather than a field on `Package`, so a new source can annotate rows without touching shared types.
 
 `Snapshot` is `{ schema: 2, refreshedAt, sources: Record<SourceId, SourceResult> }`. Each `SourceResult` records its own `state: 'ok' | 'error'`, `error`, `items`, and a precomputed `upgradeCommand`. A snapshot contains exactly the tracked sources — untracking one drops its data rather than leaving stale rows.
 
@@ -135,9 +138,7 @@ Defined on `window.api` via `src/preload/index.ts`:
 ## Brew commands used
 
 - `brew update --quiet` — refresh local tap clones.
-- `brew info --json=v2 --installed` — primary data source. Returns both `formulae[]` and `casks[]` in one call. Fields used:
-  - **Formulae:** `name`, `desc`, `installed[0].version` → installed, `versions.stable` → latest, `outdated`, `pinned`.
-  - **Casks:** `token` → name, `name[0]` → display name, `desc`, `installed` → installed, `version` → latest, `outdated`, `auto_updates` (surfaced as a "self-updates" badge — when true, brew's version may lag behind the app's actual version).
+- `brew info --json=v2 --installed` — primary data source. Fields used: `name`, `desc`, `installed[0].version` → installed, `versions.stable` → latest, `outdated`, `pinned`. The response also carries a `casks[]` array, which we ignore: casks install GUI applications, not developer dependencies.
 
 We do **not** call `brew outdated` separately — `brew info` already surfaces the `outdated` flag per item.
 
@@ -150,21 +151,27 @@ Run in parallel on every refresh:
 
 Merge: for each entry in `ls`, overlay `outdated` if present. If not outdated, `installed === latest`. `outdated: true` only when installed ≠ latest (defensive — npm's reporting can be weirdly inclusive).
 
-## VS Code extensions
+## Python packages (pip)
 
-Two-step on every refresh:
+`pip list --outdated --format=json` reports installed and latest together, so there's no registry call to make:
 
-1. `code --list-extensions --show-versions` — one `publisher.name@version` line per extension.
-2. Batched POST to the public VS Code Marketplace:
-   `https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery`
-   with body `{ filters: [{ criteria: [{filterType:7,value:"pub.name"}, …] }], flags: 17 }`.
-   `flags=17` = `IncludeVersions | IncludeVersionProperties` — we need the full version history with per-version properties so we can filter out pre-releases client-side.
+```json
+[{"name": "packaging", "version": "26.1", "latest_version": "26.3", "latest_filetype": "wheel"}]
+```
 
-Merge: for each installed ext, look up `publisher.extensionName` (lowercased) in the marketplace response and walk `versions` (newest-first) to find the first entry that (a) does **not** have `Microsoft.VisualStudio.Code.PreRelease = "true"` and (b) whose `Microsoft.VisualStudio.Code.Engine` caret-range (e.g. `^1.117.0`) is satisfied by the installed VS Code (`code --version`, parsed once per refresh). That's the latest compatible stable. Missing from marketplace → `latest = installed`, not outdated.
+Field names are pip's own — `version` and `latest_version` — mapped in `toPipPackages`. Packages that are current simply aren't listed, so this tab shows only what needs attention. `PIP_DISABLE_PIP_VERSION_CHECK=1` is set to keep pip's own nag off stdout.
 
-This avoids (a) spurious "outdated" markers for stable-track users when publishers ship daily pre-releases (e.g. `ms-python.python`), and (b) flagging a version that VS Code itself won't install because it requires a newer editor — `code --update-extensions` would silently skip it, making the app's claim wrong. Engine-range parsing only supports caret (`^X.Y.Z`); anything else is treated as compatible.
+The tool id is `pip` but the binary is normally `pip3`; `LOOKUP_NAMES` in `tools.ts` handles that, since a bare `pip` often doesn't exist.
 
-Marketplace failure is tolerated: we log it and fall back to `latest = installed` (all marked up-to-date) so a dead network doesn't break the whole refresh.
+## Ruby gems
+
+`gem outdated` prints one line per stale gem:
+
+```
+CFPropertyList (2.3.6 < 4.0.0)
+```
+
+Warnings about gems whose native extensions aren't built go to **stderr**, which we don't read, so stdout is only these lines. Current gems aren't listed at all, so every row is outdated by construction — `parseGemOutdated` sets the status directly rather than comparing versions.
 
 ## Go binaries
 
@@ -178,18 +185,6 @@ Covers binaries installed via `go install <path>@...` into `$GOBIN` (falls back 
 
 `name` is the full install path (e.g. `honnef.co/go/tools/cmd/staticcheck`) so each binary is uniquely keyed; `displayName` is the short filename shown primarily in the UI.
 
-## Desktop apps (macOS `.app` bundles)
-
-Covers arbitrary `.app` bundles outside the Homebrew ecosystem. Scans `/Applications`, `/Applications/Utilities`, and `~/Applications`, then for each bundle:
-
-1. Runs `/usr/bin/plutil -convert json -o - <bundle>/Contents/Info.plist` to read the plist. Unreadable / non-convertible plists cause the bundle to be silently skipped.
-2. Pulls `CFBundleShortVersionString` (falls back to `CFBundleVersion`) for installed; `CFBundleDisplayName` / `CFBundleName` for display; `CFBundleIdentifier` as the unique key; `SUFeedURL` for the Sparkle appcast.
-3. If a `SUFeedURL` is present, fetches it (10s `AbortController` timeout, `Accept: application/xml`) and pulls the first `<item>` from the feed. Reads `sparkle:shortVersionString` (preferred) or `sparkle:version` — both element and attribute forms — as the latest version.
-
-**Dedupe with Homebrew casks:** `src/main/sources/homebrew.ts` also returns `caskAppNames: Set<string>` built from each cask's `artifacts[].app[]` field. Any bundle whose basename appears in that set is dropped — it's already shown in the Casks tab. This only applies **when the user tracks Brew Casks**; otherwise there's no Casks tab to show them in and hiding them here would lose them entirely. If the brew call fails, dedupe falls back to an empty set — the Casks tab reports its own error, and showing the apps twice beats dropping them from both.
-
-Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave `latestVersion = ''` and render as a muted "unknown" badge rather than "up to date" — we can't claim currency if we don't have a signal. No Mac App Store apps are covered yet (would need `mas outdated` and some heuristic to recognize MAS-installed bundles).
-
 ## Settings
 
 `~/Library/Application Support/os-inventory/settings.json`, written atomically:
@@ -197,7 +192,7 @@ Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave
 ```jsonc
 {
   "schema": 1,
-  "sources": ["homebrew-formula", "custom:mas"],  // tracked, in tab order. [] by default.
+  "sources": ["homebrew-formula", "custom:cargo"], // tracked, in tab order. [] by default.
   "customSources": [ /* see below */ ],           // defined, whether tracked or not
   "toolPaths": { "go": "/opt/custom/go" },        // overrides; absent means auto-detect
   "autoRefreshMinutes": 60                        // 0 = manual only
@@ -206,22 +201,11 @@ Apps without a Sparkle feed (no `SUFeedURL`, or the feed failed/timed out) leave
 
 `settings.sources` **is** the enabled set — membership means tracked, and array order is tab order. There is no separate `enabled` flag. Everything read off disk or arriving over IPC goes through `normalizeSettings()`, which drops unknown source and tool ids and clamps the interval, so a hand-edited or newer-version file can't break the app.
 
-The settings panel (`SettingsPanel.tsx`) shows **Tracked** (reorder / remove), **Available** (add), **Tool locations**, and **Refresh**. Undetected sources are still listed and still addable — detection can be wrong, and the resulting per-source error explains the problem better than a disabled button. Only sources unsupported on the current OS can't be added.
+The settings panel (`SettingsPanel.tsx`) shows **Tracked** (reorder / remove), **Found on this machine** (add), **Custom sources**, **Tool locations**, and **Refresh**.
+
+Sources whose CLI isn't detected are collapsed behind a "show N more that aren't installed here" toggle — the section header is *Found on this machine*, not *Available*, because a list full of "not found" reads as the app telling the user what they ought to have installed. They're still addable when expanded: detection can be wrong, and a per-source error explains the problem better than a disabled button. Only sources unsupported on the current OS can't be added.
 
 Closing the panel triggers a refresh iff some tracked source has no `ok` result yet — which covers both "just added something" and "just fixed a broken tool path", without refreshing on a pure reorder.
-
-## Recipes
-
-`src/shared/recipes.ts` holds ready-made sources — curated *configs*, not code — that the user adds in one click. They exist so breadth doesn't force a choice between a biased built-in list and making people write regexes. Adding one instantiates it as an ordinary custom source (editable afterwards) and tracks it.
-
-Two rules for adding a recipe, both enforced by `recipes.test.ts`:
-
-1. **Verify it against the tool's real output**, and paste that output into the fixtures. An unverified recipe is worse than none — the user can't distinguish a broken pattern from a clean machine.
-2. **The command must report the latest version**, or set `listsOnlyUpdates`. A command that only lists what's installed produces a tab of "unknown" rows, which is noise. This is why `pipx`, `cargo install --list` and `dotnet tool list` aren't recipes.
-
-`listsOnlyUpdates` marks a command whose every row is by definition an available update. `softwareupdate -l` needs it: it reports what's available and never what you're currently on, so without the flag its rows would read "up to date" — exactly backwards.
-
-Recipes are detected per machine (`describeRecipes()`), so the picker only advertises tools that are actually present.
 
 ## Custom sources
 
@@ -229,8 +213,8 @@ A user-defined source is a command plus a rule for reading its stdout:
 
 ```jsonc
 {
-  "id": "custom:mas",              // always custom:<slug>; the slug is derived from the label
-  "label": "Mac App Store",
+  "id": "custom:cargo",            // always custom:<slug>; the slug is derived from the label
+  "label": "Rust Crates",
   "itemNoun": "apps",              // fills "Filter apps…"
   "command": "mas",                // bare name (PATH lookup) or absolute path
   "args": ["outdated"],
@@ -264,29 +248,33 @@ Commands also carry a 60s timeout so a hung tool can't wedge a refresh.
 
 ## Known gotchas
 
-- **CLI paths are resolved, not hard-coded** — `src/main/tools.ts` tries the user's Settings override, then a per-platform candidate list, then a `which`/`where` lookup. Reason GUI apps need this at all: macOS launchd starts them with a bare `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. Add new CLIs to `CANDIDATES` there, not as a constant in a source module. `plutil` is the one exception — it ships with macOS at a fixed path.
+- **CLI paths are resolved, not hard-coded** — `src/main/tools.ts` tries the user's Settings override, then a per-platform candidate list, then a `which`/`where` lookup. Reason GUI apps need this at all: macOS launchd starts them with a bare `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. Add new CLIs to `CANDIDATES` there, not as a constant in a source module.
 - **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with an absolute npm path, a Finder-launched app fails with `env: node: No such file or directory`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call uses instead of raw `process.env`. Use it for any new spawned process.
-- **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy. It runs once per refresh no matter how many brew-backed sources are tracked — `sharedBrewInfo()` memoises on the per-refresh `ctx.shared` map.
+- **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update of the app itself.** Auto-*refresh* is user-configurable and defaults to hourly.
 - **Signed, but not distributable.** `build:mac` does sign — `electron-builder` auto-discovers a signing identity in the keychain and currently picks up an *Apple Development* certificate. That's a development cert, not a **Developer ID Application** cert, and `notarize: false` in `electron-builder.yml` disables notarization. `spctl -a -t exec` rejects the output: it launches on the machine that built it, but Gatekeeper blocks it everywhere else. Shipping to other people needs a Developer ID cert plus notarization turned on. A clone with no identity in its keychain falls back to an unsigned bundle.
 - **`HOMEBREW_NO_AUTO_UPDATE=1` is set** in the brew env to prevent spurious updates inside `brew info` calls — we control update timing explicitly.
 
 ## Adding a new source
 
-Prefer a **recipe** — it's ~15 lines of config and gets the same one-click UX. A built-in is only justified when the "latest version" can't come out of a command at all. That's true of four of the six: VS Code needs a marketplace query with pre-release and engine-range filtering, Go needs the module proxy, Desktop Apps need per-app Sparkle feeds, and brew's JSON carries the pinned / self-updates badges a regex can't. Those are the ones worth hand-writing.
+**First check it's in scope**: a package manager for developer dependencies, not an application or OS software. If it isn't, the answer is a custom source, not a built-in.
 
-If it does need to be built in, three steps, no renderer changes:
+Then check it can actually report a latest version. A command that only lists what's installed produces a tab of "unknown" rows, which is noise — that's why `pipx`, `cargo install --list` and `dotnet tool list` aren't here. Either the command reports latest itself (`gem outdated`, `pip list --outdated`), or the source queries a registry (Go's module proxy).
 
-1. Add the id to `SourceId` in `src/shared/types.ts` (and a new `ToolId` + entry in `CANDIDATES` in `src/main/tools.ts` if it shells out to a CLI the app doesn't already know).
-2. Write `src/main/sources/<name>.ts` exporting a `Source` — see `src/main/sources/source.ts` for the contract. Use `detectViaTool(id)` for detection, `requireTool()` to get the resolved path (it throws with a message worth showing), `statusFor()` for the status rule, and `ctx.note()` for sub-step progress.
-3. Append it to `SOURCES` in `src/main/sources/index.ts`.
+Three steps, no renderer changes:
 
-It then appears in Settings → Available automatically. Existing users are unaffected until they add it.
+1. Add the id to `BuiltInSourceId` in `src/shared/types.ts` — plus a `ToolId`, a `CANDIDATES` entry and a `LOOKUP_NAMES` entry in `src/main/tools.ts` if it shells out to a CLI the app doesn't already know.
+2. Write `src/main/sources/<name>.ts` exporting a `Source` — see `source.ts` for the contract. Use `detectViaTool(id)`, `requireTool()` (throws with a message worth showing), `statusFor()`, and `ctx.note()` for sub-step progress. Keep the output parsing in a separate exported pure function so it can be tested against captured real output.
+3. Append it to `BUILT_IN` in `src/main/sources/index.ts`.
 
-Candidates next, most of them recipes rather than built-ins:
-- **Windows** — `winget upgrade` and `scoop status` are recipe-shaped. Installed programs from the `…\CurrentVersion\Uninstall` registry keys would need a built-in.
-- **Linux** — `apt list --upgradable`, `dnf check-update`, `flatpak remote-ls --updates` are all recipe-shaped.
-- **More dev managers** — `mise outdated`, `composer global outdated`, `cargo install-update -l`. Each needs its real output captured first (see the Recipes rules).
+It then appears in Settings automatically, and existing users are unaffected until they add it.
+
+Candidates, in rough order of how many developers they'd reach:
+- **cargo** (Rust) — needs a crates.io lookup; `cargo install --list` gives no latest.
+- **pipx / uv** — same shape, via the PyPI API.
+- **pnpm / yarn / bun globals** — each has an `outdated` command.
+- **composer** (PHP) — `composer global outdated --format=json`.
+- **Windows / Linux** — `winget upgrade`, `apt list --upgradable`, `dnf check-update`. These need the platform work in `tools.ts` verified on a real machine first.
 
 ## Non-goals for now
 
@@ -294,4 +282,5 @@ Candidates next, most of them recipes rather than built-ins:
 - No notifications when a new version becomes available.
 - No tracking of individual hand-picked packages — tracking is per-source.
 - No sharing or importing of custom source definitions (see the security note above).
+- **No applications or OS software** — no editor plugins, Mac App Store, system updates, `/Applications` scanning or Homebrew casks. This is a deliberate boundary, not a backlog; see *What this app is for*.
 - Cross-platform is *prepared for* but unproven: sources declare `platforms` and paths resolve per-OS, but only macOS is tested. Linux and Windows need their own sources plus a real run.

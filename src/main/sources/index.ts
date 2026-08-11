@@ -1,17 +1,15 @@
 import type {
   BuiltInSourceId,
-  RecipeDescriptor,
   Settings,
   SourceDescriptor,
   SourceId
 } from '../../shared/types';
-import { RECIPES } from '../../shared/recipes';
-import { resetToolCache, resolveCommand } from '../tools';
-import { homebrewFormula, homebrewCask } from './homebrew';
+import { resetToolCache } from '../tools';
+import { homebrewFormula } from './homebrew';
 import { npmGlobals } from './npmGlobals';
-import { vscodeExtensions } from './vscodeExtensions';
+import { pipPackages } from './pip';
+import { rubyGems } from './gem';
 import { goInstall } from './goInstall';
-import { macosApps } from './macosApps';
 import { makeCustomSource } from './custom';
 import type { Source } from './source';
 
@@ -19,16 +17,21 @@ export type { RefreshCtx, Source } from './source';
 export { testCustomSource } from './custom';
 
 /**
- * Every ecosystem shipped with the app, in the order they're offered in
- * Settings. Adding one means writing a module here and appending it.
+ * The package managers shipped with the app, in the order they're offered.
+ *
+ * Scope rule: **package managers that install developer dependencies.** Not
+ * applications, not their plugins, not OS software. Keeping to one category is
+ * what stops this reading as somebody's personal setup — and it makes "should
+ * we add X?" answerable without a judgment call.
+ *
+ * Anything outside that, the user adds as a custom source.
  */
 export const BUILT_IN: Source[] = [
   homebrewFormula,
-  homebrewCask,
   npmGlobals,
-  vscodeExtensions,
-  goInstall,
-  macosApps
+  pipPackages,
+  rubyGems,
+  goInstall
 ];
 
 const BUILT_IN_IDS = new Set<string>(BUILT_IN.map((s) => s.id));
@@ -76,29 +79,6 @@ export async function describeSources(settings: Settings): Promise<SourceDescrip
         detected,
         toolPath,
         hint: source.hint
-      };
-    })
-  );
-}
-
-/**
- * The recipe library with per-machine detection, so the picker can lead with
- * what's actually installed rather than advertising tools the user doesn't have.
- */
-export async function describeRecipes(): Promise<RecipeDescriptor[]> {
-  return Promise.all(
-    RECIPES.map(async (recipe): Promise<RecipeDescriptor> => {
-      const supported = recipe.platforms.includes(process.platform);
-      const commandPath = supported ? await resolveCommand(recipe.command) : null;
-      return {
-        slug: recipe.slug,
-        label: recipe.label,
-        description: recipe.description,
-        category: recipe.category,
-        command: recipe.command,
-        supported,
-        detected: commandPath !== null,
-        commandPath: commandPath ?? undefined
       };
     })
   );

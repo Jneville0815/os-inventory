@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import type {
   CustomSource,
-  RecipeDescriptor,
   Settings,
   SourceDescriptor,
   SourceId,
   ToolId
 } from '../../../shared/types';
-import { findRecipe, recipeToCustomSource } from '../../../shared/recipes';
 import CustomSourceForm from './CustomSourceForm';
 
 type Props = {
   settings: Settings;
   sources: SourceDescriptor[];
-  recipes: RecipeDescriptor[];
   onChange: (next: Settings) => void;
   onClose: () => void;
 };
@@ -34,7 +31,8 @@ type AddableEntry = {
 const TOOL_LABEL: Record<ToolId, string> = {
   brew: 'Homebrew',
   npm: 'npm',
-  code: 'VS Code',
+  pip: 'pip',
+  gem: 'gem',
   go: 'Go'
 };
 
@@ -101,7 +99,6 @@ function ToolPathField({
 export default function SettingsPanel({
   settings,
   sources,
-  recipes,
   onChange,
   onClose
 }: Props): React.JSX.Element {
@@ -126,40 +123,25 @@ export default function SettingsPanel({
     .map((id) => byId.get(id))
     .filter((s): s is SourceDescriptor => s !== undefined);
 
-  // Everything addable, in one list: built-ins, already-defined custom sources,
-  // and library recipes not yet added. From the user's side they're the same
-  // thing — "something I could track".
-  const available: AddableEntry[] = useMemo(() => {
-    const defined = new Set(settings.customSources.map((c) => c.id));
-    const fromSources: AddableEntry[] = sources
-      .filter((s) => !settings.sources.includes(s.id))
-      .map((s) => ({
-        key: s.id,
-        label: s.label,
-        description: s.description,
-        supported: s.supported,
-        detected: s.detected,
-        detail: s.toolPath,
-        hint: s.hint,
-        onAdd: () => add(s.id)
-      }));
-
-    const fromRecipes: AddableEntry[] = recipes
-      .filter((r) => !defined.has(`custom:${r.slug}`))
-      .map((r) => ({
-        key: `recipe:${r.slug}`,
-        label: r.label,
-        description: r.description,
-        supported: r.supported,
-        detected: r.detected,
-        detail: r.commandPath,
-        hint: `Needs \`${r.command}\``,
-        onAdd: () => addRecipe(r.slug)
-      }));
-
-    return [...fromSources, ...fromRecipes];
+  // Everything addable: built-in package managers plus any custom source the
+  // user has defined but isn't tracking yet.
+  const available: AddableEntry[] = useMemo(
+    () =>
+      sources
+        .filter((s) => !settings.sources.includes(s.id))
+        .map((s) => ({
+          key: s.id,
+          label: s.label,
+          description: s.description,
+          supported: s.supported,
+          detected: s.detected,
+          detail: s.toolPath,
+          hint: s.hint,
+          onAdd: () => add(s.id)
+        })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sources, recipes, settings]);
+    [sources, settings]
+  );
 
   // Lead with what's actually on this machine — a list full of "not found"
   // reads as the app telling you what you ought to have installed.
@@ -188,18 +170,6 @@ export default function SettingsPanel({
     const next = [...settings.sources];
     [next[from], next[to]] = [next[to], next[from]];
     setSources(next);
-  };
-
-  /** Adding a recipe instantiates it as an ordinary custom source, then tracks it. */
-  const addRecipe = (slug: string): void => {
-    const recipe = findRecipe(slug);
-    if (!recipe) return;
-    const source = recipeToCustomSource(recipe);
-    onChange({
-      ...settings,
-      customSources: [...settings.customSources, source],
-      sources: [...settings.sources, source.id]
-    });
   };
 
   const saveCustom = (source: CustomSource): void => {

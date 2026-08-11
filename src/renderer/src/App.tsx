@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
-  RecipeDescriptor,
   RefreshProgress,
   Settings,
   Snapshot,
@@ -18,7 +17,6 @@ function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [sources, setSources] = useState<SourceDescriptor[]>([]);
-  const [recipes, setRecipes] = useState<RecipeDescriptor[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [progress, setProgress] = useState<RefreshProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,14 +28,12 @@ function App(): React.JSX.Element {
     Promise.all([
       window.api.getSnapshot(),
       window.api.getSettings(),
-      window.api.listSources(),
-      window.api.listRecipes()
+      window.api.listSources()
     ])
-      .then(([snap, loaded, descriptors, library]) => {
+      .then(([snap, loaded, descriptors]) => {
         setSnapshot(snap);
         setSettings(loaded);
         setSources(descriptors);
-        setRecipes(library);
         setStatus('idle');
       })
       .catch((e: Error) => {
@@ -258,7 +254,6 @@ function App(): React.JSX.Element {
         <SettingsPanel
           settings={settings}
           sources={sources}
-          recipes={recipes}
           onChange={(next) => void applySettings(next)}
           onClose={closeSettings}
         />

@@ -50,9 +50,9 @@ describe('normalizeSettings', () => {
 
   it('drops unknown tools, blank strings and non-strings', () => {
     const s = normalizeSettings({
-      toolPaths: { cargo: '/usr/bin/cargo', go: '   ', npm: 123, code: '/usr/local/bin/code' }
+      toolPaths: { cargo: '/usr/bin/cargo', go: '   ', npm: 123, gem: '/usr/bin/gem' }
     });
-    expect(s.toolPaths).toEqual({ code: '/usr/local/bin/code' });
+    expect(s.toolPaths).toEqual({ gem: '/usr/bin/gem' });
   });
 
   it('clamps the refresh interval into range', () => {

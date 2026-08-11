@@ -4,20 +4,23 @@
 
 <h1 align="center">OS Inventory</h1>
 
-A macOS desktop dashboard that shows what's installed on your machine next to the latest available version, so you can see at a glance what's out of date.
+A macOS desktop dashboard that shows which of your **developer dependencies are out of date** — what's installed next to the latest available version, at a glance.
 
-Covers:
+Built in support for the package managers most developers already have:
 
-- Homebrew formulae
-- Homebrew casks
-- npm globals
-- VS Code extensions
-- Go binaries (`go install`'d into `$GOBIN`)
-- macOS `.app` bundles in `/Applications` (via Sparkle appcast checks)
+- **Homebrew** — `brew install` formulae
+- **npm** — globally installed packages
+- **Python** — pip packages
+- **Ruby** — installed gems
+- **Go** — binaries `go install`'d into `$GOBIN`
+
+Nothing is tracked by default. You pick what you want in Settings, and each one becomes a tab. Settings leads with what it actually finds on your machine, so you're never looking at a list of things you don't use.
+
+Using something that isn't on the list? **Add it yourself** — point OS Inventory at any command and tell it how to read the output, either with a pattern or by having your own script print `name`, `installed` and `latest`. There's a Test button that shows you the raw output next to what it parsed.
 
 Built with Electron, React, and TypeScript.
 
-![OS Inventory dashboard showing the Brew Formulae tab](./resources/screenshots/dashboard.png)
+![OS Inventory dashboard](./resources/screenshots/dashboard.png)
 
 ## Getting started
 
@@ -26,7 +29,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the app with hot module reloading for the renderer. Click **Refresh** to run the inventory checks — the first refresh may take a little while (Homebrew's `brew update` alone can take 10–30 seconds), after which a snapshot is cached to disk and reloaded instantly on next launch.
+`npm run dev` starts the app with hot module reloading for the renderer. Open **Settings**, add the package managers you care about, then hit **Refresh** — the first run may take a little while (Homebrew's `brew update` alone can take 10–30 seconds), after which a snapshot is cached to disk and repainted instantly on next launch.
 
 ## Commands
 
@@ -36,34 +39,41 @@ npm run dev
 | `npm run build`      | Full typecheck + production bundle (`out/`). No packaging.                       |
 | `npm run build:mac`  | Builds and packages a `.dmg`/`.zip` for macOS via `electron-builder`. Locally signed, not notarized. |
 | `npm run typecheck`  | `tsc --noEmit` for both the main and renderer TypeScript configs.                 |
+| `npm test`           | Vitest, once. `npm run test:watch` to keep it running.                            |
 | `npm run lint`       | ESLint via the electron-toolkit config.                                          |
 | `npm run format`     | Prettier, applied in place.                                                      |
 
 ## How it works
 
-Each ecosystem is checked by shelling out to its native CLI (or, for macOS apps, reading `Info.plist` and querying Sparkle appcasts) and comparing the installed version against the latest available one:
+Each source shells out to its native CLI and compares what's installed against the latest available:
 
-- **Homebrew** — `brew update` then `brew info --json=v2 --installed`, which returns formulae and casks with their `outdated` flag already computed.
+- **Homebrew** — `brew update`, then `brew info --json=v2 --installed`, which computes the `outdated` flag per formula.
 - **npm globals** — `npm ls -g --json` merged with `npm outdated -g --json`.
-- **VS Code extensions** — `code --list-extensions --show-versions`, cross-checked against the public VS Code Marketplace API (filtering out pre-releases and versions that require a newer editor than the one installed).
-- **Go binaries** — `go version -m` over everything in `$GOBIN`, with the latest version resolved per-module via the Go module proxy (`proxy.golang.org`).
-- **macOS apps** — walks `/Applications` (plus `/Applications/Utilities` and `~/Applications`), reads each bundle's `Info.plist`, and fetches the app's Sparkle feed (`SUFeedURL`) if it has one. Apps already shown under Homebrew Casks are deduplicated out.
+- **Python** — `pip list --outdated --format=json`, which reports installed and latest together.
+- **Ruby** — `gem outdated`.
+- **Go binaries** — `go version -m` over everything in `$GOBIN`, with the latest version resolved per module via the Go module proxy (`proxy.golang.org`).
 
-Results are cached to `~/Library/Application Support/os-inventory/snapshot.json` and repainted immediately on launch, so there's no blank screen while checks run. Refresh is always a manual, explicit action — nothing runs automatically or on a timer.
+Sources run concurrently and fail independently: a missing CLI or a dead network marks that one tab and leaves the rest intact. CLI locations are detected rather than hard-coded, and every one can be overridden in Settings.
 
-See [`CLAUDE.md`](./CLAUDE.md) for the full architecture breakdown, IPC contract, and per-ecosystem implementation notes.
+Results are cached to `~/Library/Application Support/os-inventory/snapshot.json` and repainted immediately on launch, so there's no blank screen while checks run.
+
+See [`CLAUDE.md`](./CLAUDE.md) for the architecture, IPC contract, and per-source implementation notes.
+
+## Scope
+
+**Package managers that install developer dependencies.** That's the whole remit.
+
+Deliberately not covered: applications and their plugins (editor extensions), and OS software (system updates, Mac App Store, `/Applications`, Homebrew casks). Keeping to one category is what stops the built-in list from being an opinion about which tools you ought to be using — and anything outside it, you can still add as a custom source.
 
 ## Requirements
 
-- macOS (Apple Silicon paths are hard-coded to `/opt/homebrew/...`; Intel Macs and other platforms aren't supported yet)
-- [Homebrew](https://brew.sh/) — required, as the app's baseline
-- Node.js/npm, VS Code, and Go are each optional — their tabs simply show nothing if the corresponding CLI isn't found
+- macOS. Paths resolve per-platform and Linux/Windows are prepared for, but only macOS is tested.
+- Every source is optional. Track only what you use; undetected tools stay out of your way.
 
 ## Known limitations
 
-- Not distributable yet — `electron-builder` signs the bundle with whatever identity it finds in the local keychain, but an Apple Development certificate isn't a Developer ID, and notarization is off (`notarize: false`). `spctl` rejects the result, so it runs fine on the machine that built it and Gatekeeper will block it anywhere else. Shipping needs a Developer ID Application certificate and notarization enabled.
-- No auto-update, no auto-refresh timer, no settings UI yet.
-- Mac App Store apps aren't covered (no Sparkle feed to check against).
+- Not distributable yet — `electron-builder` signs with whatever identity it finds in the local keychain, but an Apple Development certificate isn't a Developer ID, and notarization is off (`notarize: false`). `spctl` rejects the result, so it runs on the machine that built it and Gatekeeper blocks it anywhere else. Shipping needs a Developer ID Application certificate and notarization enabled.
+- No auto-update of the app itself.
 
 ## License
 

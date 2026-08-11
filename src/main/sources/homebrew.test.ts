@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectCaskAppNames, toCaskPackages, toFormulaPackages } from './homebrew';
+import { toFormulaPackages } from './homebrew';
 
 const formula = (over: Partial<Parameters<typeof toFormulaPackages>[0][number]> = {}): Parameters<
   typeof toFormulaPackages
@@ -13,18 +13,6 @@ const formula = (over: Partial<Parameters<typeof toFormulaPackages>[0][number]> 
   ...over
 });
 
-const cask = (over: Partial<Parameters<typeof toCaskPackages>[0][number]> = {}): Parameters<
-  typeof toCaskPackages
->[0][number] => ({
-  token: 'rectangle',
-  name: ['Rectangle'],
-  desc: 'Window manager',
-  version: '0.84',
-  installed: '0.84',
-  outdated: false,
-  auto_updates: false,
-  ...over
-});
 
 describe('toFormulaPackages', () => {
   it('maps an up-to-date formula to `current` with no badges', () => {
@@ -73,57 +61,5 @@ describe('toFormulaPackages', () => {
       formula({ name: 'moreutils' })
     ]).map((p) => p.name);
     expect(names).toEqual(['aria2', 'moreutils', 'zstd']);
-  });
-});
-
-describe('toCaskPackages', () => {
-  it('uses the token as name and the first display name for display', () => {
-    const [p] = toCaskPackages([cask()]);
-    expect(p).toMatchObject({
-      sourceId: 'homebrew-cask',
-      name: 'rectangle',
-      displayName: 'Rectangle',
-      status: 'current'
-    });
-  });
-
-  it('badges self-updating casks, since brew version tracking lags for them', () => {
-    const [p] = toCaskPackages([cask({ auto_updates: true })]);
-    expect(p.badges).toEqual([
-      {
-        label: 'self-updates',
-        tone: 'info',
-        title: "App updates itself — brew's version tracking may lag"
-      }
-    ]);
-  });
-
-  it('reads `unknown` when the cask has no version', () => {
-    const [p] = toCaskPackages([cask({ version: null, installed: null })]);
-    expect(p.status).toBe('unknown');
-  });
-});
-
-describe('collectCaskAppNames', () => {
-  it('pulls .app bundle names out of the artifacts array', () => {
-    const names = collectCaskAppNames([
-      cask({ artifacts: [{ app: ['Rectangle.app'] }, { zap: [{ trash: ['~/Library/x'] }] }] })
-    ]);
-    expect([...names]).toEqual(['Rectangle.app']);
-  });
-
-  it('handles a cask shipping several apps', () => {
-    const names = collectCaskAppNames([
-      cask({ artifacts: [{ app: ['Docker.app', 'Docker Desktop.app'] }] })
-    ]);
-    expect([...names].sort()).toEqual(['Docker Desktop.app', 'Docker.app']);
-  });
-
-  it('ignores non-.app entries and casks with no artifacts', () => {
-    const names = collectCaskAppNames([
-      cask({ artifacts: [{ app: ['tool.pkg'] }, { binary: ['bin/tool'] }] }),
-      cask({ artifacts: undefined })
-    ]);
-    expect(names.size).toBe(0);
   });
 });

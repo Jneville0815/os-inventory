@@ -3,13 +3,7 @@ import { promisify } from 'node:util';
 import type { Package } from '../../shared/types';
 import { childEnv } from '../childEnv';
 import { requireTool } from '../tools';
-import {
-  detectViaTool,
-  once,
-  statusFor,
-  type RefreshCtx,
-  type Source
-} from './source';
+import { detectViaTool, statusFor, type RefreshCtx, type Source } from './source';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,6 +18,8 @@ const execOpts = {
   })
 };
 
+// `--installed` also returns a `casks` array; we ask for formulae only, since
+// casks install GUI applications rather than developer dependencies.
 type BrewInfoPayload = {
   formulae: Array<{
     name: string;
@@ -33,40 +29,7 @@ type BrewInfoPayload = {
     outdated: boolean;
     pinned: boolean;
   }>;
-  casks: Array<{
-    token: string;
-    name?: string[];
-    desc?: string;
-    version: string | null;
-    installed: string | null;
-    outdated: boolean;
-    auto_updates: boolean | null;
-    artifacts?: Array<Record<string, unknown>>;
-  }>;
 };
-
-export type BrewInfo = {
-  formulae: Package[];
-  casks: Package[];
-  /** Basenames of .app bundles owned by casks, e.g. "Rectangle.app". */
-  caskAppNames: Set<string>;
-};
-
-export function collectCaskAppNames(casks: BrewInfoPayload['casks']): Set<string> {
-  const names = new Set<string>();
-  for (const c of casks) {
-    for (const art of c.artifacts ?? []) {
-      const appEntry = art['app'];
-      if (!Array.isArray(appEntry)) continue;
-      for (const item of appEntry) {
-        if (typeof item === 'string' && item.endsWith('.app')) {
-          names.add(item);
-        }
-      }
-    }
-  }
-  return names;
-}
 
 export function toFormulaPackages(formulae: BrewInfoPayload['formulae']): Package[] {
   return formulae
@@ -87,30 +50,7 @@ export function toFormulaPackages(formulae: BrewInfoPayload['formulae']): Packag
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function toCaskPackages(casks: BrewInfoPayload['casks']): Package[] {
-  return casks
-    .map<Package>((c) => ({
-      sourceId: 'homebrew-cask',
-      name: c.token,
-      displayName: c.name?.[0],
-      description: c.desc,
-      installedVersion: c.installed ?? '',
-      latestVersion: c.version ?? '',
-      status: statusFor(c.version ?? '', c.outdated),
-      badges: c.auto_updates
-        ? [
-            {
-              label: 'self-updates',
-              tone: 'info',
-              title: "App updates itself — brew's version tracking may lag"
-            }
-          ]
-        : undefined
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-async function loadBrewInfo(ctx: RefreshCtx): Promise<BrewInfo> {
+async function loadFormulae(ctx: RefreshCtx): Promise<Package[]> {
   const brew = await requireTool('brew', ctx.settings);
   const run = async (args: string[]): Promise<string> =>
     (await execFileAsync(brew, args, execOpts)).stdout;
@@ -121,47 +61,22 @@ async function loadBrewInfo(ctx: RefreshCtx): Promise<BrewInfo> {
   await run(['update', '--quiet']);
 
   ctx.note('reading installed packages');
-  const parsed = JSON.parse(await run(['info', '--json=v2', '--installed'])) as BrewInfoPayload;
+  const parsed = JSON.parse(
+    await run(['info', '--json=v2', '--installed'])
+  ) as BrewInfoPayload;
 
-  return {
-    formulae: toFormulaPackages(parsed.formulae),
-    casks: toCaskPackages(parsed.casks),
-    caskAppNames: collectCaskAppNames(parsed.casks)
-  };
+  return toFormulaPackages(parsed.formulae);
 }
-
-/**
- * One `brew update` + `brew info` per refresh, however many brew-backed sources
- * are enabled and whatever order they run in.
- */
-export function sharedBrewInfo(ctx: RefreshCtx): Promise<BrewInfo> {
-  return once(ctx, 'brew:info', () => loadBrewInfo(ctx));
-}
-
-const HINT = 'Install Homebrew from brew.sh';
 
 export const homebrewFormula: Source = {
   id: 'homebrew-formula',
-  label: 'Brew Formulae',
+  label: 'Homebrew',
   itemNoun: 'formulae',
   description: 'Command-line packages installed with `brew install`.',
   platforms: ['darwin', 'linux'],
   toolId: 'brew',
-  hint: HINT,
+  hint: 'Install Homebrew from brew.sh',
   detect: detectViaTool('brew'),
-  fetch: async (ctx) => (await sharedBrewInfo(ctx)).formulae,
+  fetch: loadFormulae,
   upgradeCommand: (outdated) => (outdated.length ? 'brew upgrade --formula' : '')
-};
-
-export const homebrewCask: Source = {
-  id: 'homebrew-cask',
-  label: 'Brew Casks',
-  itemNoun: 'casks',
-  description: 'GUI applications installed with `brew install --cask`.',
-  platforms: ['darwin'],
-  toolId: 'brew',
-  hint: HINT,
-  detect: detectViaTool('brew'),
-  fetch: async (ctx) => (await sharedBrewInfo(ctx)).casks,
-  upgradeCommand: (outdated) => (outdated.length ? 'brew upgrade --cask' : '')
 };

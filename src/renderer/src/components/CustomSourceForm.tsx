@@ -23,33 +23,27 @@ const MODE_HELP: Record<CustomSourceMode, string> = {
   json: 'Standard output is a JSON array of { "name": …, "installed": …, "latest": … } objects.'
 };
 
+/**
+ * Starting points that teach the two shapes. Deliberately generic — the built-in
+ * list is the app's opinion about what to track; these are just format examples.
+ */
 const EXAMPLES: Array<{ label: string; config: Omit<CustomSource, 'id'> }> = [
   {
-    label: 'Mac App Store (mas)',
+    label: 'An `outdated` command',
     config: {
-      label: 'Mac App Store',
-      itemNoun: 'apps',
-      command: 'mas',
+      label: 'My Packages',
+      itemNoun: 'packages',
+      command: 'yourtool',
       args: ['outdated'],
       mode: 'regex',
-      pattern: '^\\s*\\d+\\s+(?<name>.+?)\\s+\\((?<installed>[^\\s)]+)\\s*->\\s*(?<latest>[^)]+)\\)',
-      upgradeCommand: 'mas upgrade'
+      // Matches the very common "name (1.0.0 < 2.0.0)" and "name (1.0.0 -> 2.0.0)".
+      pattern:
+        '^(?<name>\\S+)\\s+\\((?<installed>[^\\s<>-]+)\\s*(?:<|->)\\s*(?<latest>[^)]+)\\)',
+      upgradeCommand: 'yourtool upgrade'
     }
   },
   {
-    label: 'Ruby gems',
-    config: {
-      label: 'Ruby Gems',
-      itemNoun: 'gems',
-      command: 'gem',
-      args: ['outdated'],
-      mode: 'regex',
-      pattern: '^(?<name>\\S+)\\s+\\((?<installed>[^\\s<]+)\\s*<\\s*(?<latest>[^)]+)\\)',
-      upgradeCommand: 'gem update'
-    }
-  },
-  {
-    label: 'Your own script (TSV)',
+    label: 'Your own script',
     config: {
       label: 'My Packages',
       itemNoun: 'packages',

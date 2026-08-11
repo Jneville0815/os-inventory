@@ -22,14 +22,16 @@ const CANDIDATES: Record<ToolId, Partial<Record<NodeJS.Platform, string[]>>> = {
     linux: ['/usr/local/bin/npm', '/usr/bin/npm'],
     win32: ['C:\\Program Files\\nodejs\\npm.cmd']
   },
-  code: {
-    darwin: [
-      '/usr/local/bin/code',
-      '/opt/homebrew/bin/code',
-      '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code'
-    ],
-    linux: ['/usr/bin/code', '/usr/local/bin/code', '/snap/bin/code'],
-    win32: ['C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd']
+  pip: {
+    darwin: ['/opt/homebrew/bin/pip3', '/usr/local/bin/pip3', '/usr/bin/pip3'],
+    linux: ['/usr/local/bin/pip3', '/usr/bin/pip3'],
+    win32: ['C:\\Python312\\Scripts\\pip.exe']
+  },
+  gem: {
+    // macOS ships a system Ruby; a Homebrew or rbenv Ruby shadows it via PATH.
+    darwin: ['/opt/homebrew/bin/gem', '/usr/local/bin/gem', '/usr/bin/gem'],
+    linux: ['/usr/local/bin/gem', '/usr/bin/gem'],
+    win32: ['C:\\Ruby33-x64\\bin\\gem.cmd']
   },
   go: {
     darwin: ['/opt/homebrew/bin/go', '/usr/local/go/bin/go', '/usr/local/bin/go'],
@@ -72,6 +74,18 @@ async function lookupOnPath(name: string): Promise<string | null> {
   }
 }
 
+/**
+ * What to look for on PATH. Usually the tool id, but not always: `pip` is
+ * `pip3` nearly everywhere, and a bare `pip` often doesn't exist at all.
+ */
+const LOOKUP_NAMES: Record<ToolId, string[]> = {
+  brew: ['brew'],
+  npm: ['npm'],
+  pip: ['pip3', 'pip'],
+  gem: ['gem'],
+  go: ['go']
+};
+
 async function locate(id: ToolId, override: string | undefined): Promise<string | null> {
   if (override) {
     // An override that doesn't resolve is an error worth surfacing, not something
@@ -81,7 +95,11 @@ async function locate(id: ToolId, override: string | undefined): Promise<string 
   for (const candidate of CANDIDATES[id][process.platform] ?? []) {
     if (await isExecutable(candidate)) return candidate;
   }
-  return lookupOnPath(id);
+  for (const name of LOOKUP_NAMES[id]) {
+    const found = await lookupOnPath(name);
+    if (found) return found;
+  }
+  return null;
 }
 
 // Resolution costs a few stat() calls and sometimes a `which` spawn. Cache it,

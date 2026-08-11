@@ -4,7 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { readSnapshot, writeSnapshot } from './cache';
 import { readSettings, writeSettings } from './settings';
-import { describeRecipes, describeSources, testCustomSource } from './sources';
+import { describeSources, testCustomSource } from './sources';
 import { normalizeCustomSource } from './settings';
 import { runRefresh } from './refresh';
 import type { CustomSource, CustomSourceTest, RefreshProgress, Snapshot } from '../shared/types';
@@ -73,7 +73,6 @@ function registerIpc(): void {
     writeSettings(settings)
   );
   ipcMain.handle('inventory:listSources', async () => describeSources(await readSettings()));
-  ipcMain.handle('inventory:listRecipes', () => describeRecipes());
   ipcMain.handle('inventory:refresh', () => refresh(broadcastProgress));
 
   ipcMain.handle(

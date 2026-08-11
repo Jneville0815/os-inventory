@@ -3,14 +3,20 @@
  * Included by both tsconfig.node.json and tsconfig.web.json.
  */
 
-/** A package ecosystem shipped with the app. */
+/**
+ * The package managers shipped with the app.
+ *
+ * Scope rule: **package managers that install developer dependencies.** Not
+ * applications, not their plugins, not OS software. That's what keeps the list
+ * a category rather than somebody's personal setup — and it means "should we
+ * add X?" is answerable without a judgment call.
+ */
 export type BuiltInSourceId =
   | 'homebrew-formula'
-  | 'homebrew-cask'
   | 'npm-global'
-  | 'vscode-extension'
-  | 'go-install'
-  | 'macos-app';
+  | 'pip'
+  | 'gem'
+  | 'go-install';
 
 /** A source the user defined themselves. Always `custom:<slug>`. */
 export type CustomSourceId = `custom:${string}`;
@@ -50,33 +56,6 @@ export type CustomSource = {
   listsOnlyUpdates?: boolean;
 };
 
-/**
- * A ready-made custom source shipped with the app. Recipes are curated configs,
- * not code — they exist so breadth doesn't mean either a biased built-in list
- * or making users write regexes.
- */
-export type Recipe = Omit<CustomSource, 'id'> & {
-  /** Becomes `custom:<slug>` when added. */
-  slug: string;
-  /** One line for the picker. */
-  description: string;
-  /** What this app is for: developer dependencies and OS-level software. */
-  category: 'dev' | 'os';
-  platforms: NodeJS.Platform[];
-};
-
-/** A recipe plus whether its command exists on this machine. */
-export type RecipeDescriptor = {
-  slug: string;
-  label: string;
-  description: string;
-  category: 'dev' | 'os';
-  command: string;
-  supported: boolean;
-  detected: boolean;
-  commandPath?: string;
-};
-
 /** Result of the Settings "Test" button: enough to write a pattern against. */
 export type CustomSourceTest = {
   ok: boolean;
@@ -91,7 +70,7 @@ export type CustomSourceTest = {
 };
 
 /** An external CLI a source shells out to. Users can override where it lives. */
-export type ToolId = 'brew' | 'npm' | 'code' | 'go';
+export type ToolId = 'brew' | 'npm' | 'pip' | 'gem' | 'go';
 
 /**
  * `unknown` means we found no update feed for this item, so we can't claim it's
@@ -191,8 +170,6 @@ export type OsInventoryApi = {
   getSettings: () => Promise<Settings>;
   saveSettings: (settings: Settings) => Promise<Settings>;
   listSources: () => Promise<SourceDescriptor[]>;
-  /** The recipe library, with detection for this machine. */
-  listRecipes: () => Promise<RecipeDescriptor[]>;
   /** Runs a custom source once without saving it, for the Settings preview. */
   testCustomSource: (source: CustomSource) => Promise<CustomSourceTest>;
 };
