@@ -4,3 +4,7 @@ pnpm-lock.yaml
 LICENSE.md
 tsconfig.json
 tsconfig.*.json
+
+# Docs are hand-formatted — aligned tables and deliberate wrapping that a
+# formatter would churn on every edit.
+*.md

@@ -21,8 +21,6 @@ export function childEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const separator = process.platform === 'win32' ? ';' : ':';
   const existing = process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin';
   const current = existing.split(separator);
-  const dirs = (EXTRA_PATH_DIRS[process.platform] ?? []).filter(
-    (dir) => !current.includes(dir)
-  );
+  const dirs = (EXTRA_PATH_DIRS[process.platform] ?? []).filter((dir) => !current.includes(dir));
   return { ...process.env, ...extra, PATH: [...dirs, existing].join(separator) };
 }

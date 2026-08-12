@@ -1,10 +1,4 @@
-import type {
-  Package,
-  PackageStatus,
-  Settings,
-  SourceId,
-  ToolId
-} from '../../shared/types';
+import type { Package, PackageStatus, Settings, SourceId, ToolId } from '../../shared/types';
 import { resolveTool } from '../tools';
 
 /** Per-refresh context handed to every source. */

@@ -6,7 +6,9 @@ import { parseBunOutdated } from './bunGlobals';
 describe('mergePnpmGlobals', () => {
   // Verbatim shapes from `pnpm ls -g --json` and `pnpm outdated -g --format=json`
   // (pnpm 11.21.0).
-  const LS = [{ path: '/…/global/v11', private: true, dependencies: { cowsay: { version: '1.4.0' } } }];
+  const LS = [
+    { path: '/…/global/v11', private: true, dependencies: { cowsay: { version: '1.4.0' } } }
+  ];
   const OUTDATED = { cowsay: { current: '1.4.0', latest: '1.6.0', wanted: '1.4.0' } };
 
   it('overlays the outdated report onto the full global list', () => {
@@ -23,7 +25,11 @@ describe('mergePnpmGlobals', () => {
 
   it('keeps current packages, so the tab shows everything installed', () => {
     const [p] = mergePnpmGlobals(LS, {});
-    expect(p).toMatchObject({ installedVersion: '1.4.0', latestVersion: '1.4.0', status: 'current' });
+    expect(p).toMatchObject({
+      installedVersion: '1.4.0',
+      latestVersion: '1.4.0',
+      status: 'current'
+    });
   });
 
   it('merges dependencies across multiple roots', () => {

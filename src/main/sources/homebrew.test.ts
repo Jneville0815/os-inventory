@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { toFormulaPackages } from './homebrew';
 
-const formula = (over: Partial<Parameters<typeof toFormulaPackages>[0][number]> = {}): Parameters<
-  typeof toFormulaPackages
->[0][number] => ({
+const formula = (
+  over: Partial<Parameters<typeof toFormulaPackages>[0][number]> = {}
+): Parameters<typeof toFormulaPackages>[0][number] => ({
   name: 'ripgrep',
   desc: 'Search tool',
   versions: { stable: '14.1.1' },
@@ -12,7 +12,6 @@ const formula = (over: Partial<Parameters<typeof toFormulaPackages>[0][number]> 
   pinned: false,
   ...over
 });
-
 
 describe('toFormulaPackages', () => {
   it('maps an up-to-date formula to `current` with no badges', () => {
@@ -43,9 +42,7 @@ describe('toFormulaPackages', () => {
   it('leads with outdated when a formula is both pinned and outdated, keeping the pin as a badge', () => {
     const [p] = toFormulaPackages([formula({ pinned: true, outdated: true })]);
     expect(p.status).toBe('outdated');
-    expect(p.badges).toEqual([
-      { label: 'pinned', tone: 'muted', title: 'Held by `brew pin`' }
-    ]);
+    expect(p.badges).toEqual([{ label: 'pinned', tone: 'muted', title: 'Held by `brew pin`' }]);
   });
 
   it('reads `unknown` when brew has no stable version', () => {

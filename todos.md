@@ -36,11 +36,11 @@ These gate real work, and two of them get more expensive the longer they wait.
 
 ---
 
-## 2. Before anyone else sees a build
+## 2. Before anyone else sees a build — DONE (`0.9.0`)
 
 Small, but all of it leaks into the artifact a customer downloads.
 
-- [ ] `electron-builder.yml` — replace the scaffold defaults:
+- [x] `electron-builder.yml` — replace the scaffold defaults:
       - `appId: com.electron.app` → real reverse-DNS id (match `setAppUserModelId`
         in `src/main/index.ts`)
       - `win.executableName: os-inventory-scaffold`
@@ -49,19 +49,20 @@ Small, but all of it leaks into the artifact a customer downloads.
       - **Delete the four `extendInfo` usage strings** — camera, microphone,
         Documents, Downloads. The app touches none of them, and asking for the
         microphone is a support ticket waiting to happen.
-- [ ] `package.json` — `description` still says "Homebrew first"; `author` has no
+- [x] `package.json` — `description` still says "Homebrew first"; `author` has no
       email; bump `version` (0.9.0 for pre-release, 1.0.0 at launch).
-- [ ] **Stale UI copy** — `src/renderer/src/App.tsx:135` still offers "package
+- [x] **Stale UI copy** — `src/renderer/src/App.tsx:135` still offers "package
       managers and app sources"; app sources are out of scope now. The header
       subtitle "Package versions" could say what the app is for.
-- [ ] **Replace the README screenshot.** `resources/screenshots/dashboard.png` is
+- [x] **Replace the README screenshot.** `resources/screenshots/dashboard.png` is
       from 30 Jul and shows tabs that no longer exist (Brew Casks, VS Code,
       Desktop Apps).
-- [ ] **Settle the Prettier mismatch.** `.prettierrc.yaml` says `semi: false`
-      while the whole codebase uses semicolons — 1,493 lint warnings, 0 errors,
-      and it predates this work. Either flip the config to `semi: true` (one
-      line, no diff) or run `npm run format` (one noisy commit). Until then the
-      warning count hides anything new.
+- [x] **Settled the Prettier mismatch.** Flipped `semi: true` to match the
+      codebase (1,495 → 50 warnings), then formatted the remaining 50. Lint is
+      now **0 problems**, so anything new is visible. Markdown is in
+      `.prettierignore` — the docs are hand-formatted.
+- [x] **Fixed `package.json` `homepage`**, which pointed at `github.com/jimmyneville`
+      — not an account that exists. Added `repository` and `bugs` too.
 
 ---
 

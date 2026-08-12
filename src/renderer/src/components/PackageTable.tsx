@@ -9,10 +9,7 @@ type Props = {
   filter: string;
 };
 
-const STATUS_BADGE: Record<
-  PackageStatus,
-  { label: string; className: string; title?: string }
-> = {
+const STATUS_BADGE: Record<PackageStatus, { label: string; className: string; title?: string }> = {
   outdated: { label: 'outdated', className: 'badge-outdated' },
   held: {
     label: 'held',
@@ -113,11 +110,7 @@ export default function PackageTable({ packages, filter }: Props): React.JSX.Ele
               <tr
                 key={p.name}
                 className={
-                  p.status === 'outdated'
-                    ? 'row-outdated'
-                    : p.status === 'held'
-                      ? 'row-pinned'
-                      : ''
+                  p.status === 'outdated' ? 'row-outdated' : p.status === 'held' ? 'row-pinned' : ''
                 }
               >
                 <td>
@@ -140,11 +133,7 @@ export default function PackageTable({ packages, filter }: Props): React.JSX.Ele
                       {badge.label}
                     </span>
                     {p.badges?.map((b) => (
-                      <span
-                        key={b.label}
-                        className={`badge ${TONE_CLASS[b.tone]}`}
-                        title={b.title}
-                      >
+                      <span key={b.label} className={`badge ${TONE_CLASS[b.tone]}`} title={b.title}>
                         {b.label}
                       </span>
                     ))}

@@ -54,8 +54,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
@@ -118,7 +117,10 @@ body {
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .icon-button:hover:not(:disabled) {
@@ -219,7 +221,10 @@ body {
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 .copy-button:hover:not(:disabled) {
@@ -422,7 +427,9 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   margin-bottom: -1px;
 }
 
@@ -618,7 +625,10 @@ body {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 .add-button {

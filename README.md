@@ -22,7 +22,11 @@ Using something that isn't on the list? **Add it yourself** — point OS Invento
 
 Built with Electron, React, and TypeScript.
 
-![OS Inventory dashboard](./resources/screenshots/dashboard.png)
+![OS Inventory dashboard, showing Homebrew, npm, Python, Ruby and Go tabs with out-of-date packages listed first](./resources/screenshots/dashboard.png)
+
+Settings leads with what it actually found on your machine — undetected tools stay collapsed, so you're never shown a list of things you don't use:
+
+![The Settings panel listing the package managers detected on this machine, each with an Add button](./resources/screenshots/settings.png)
 
 ## Getting started
 

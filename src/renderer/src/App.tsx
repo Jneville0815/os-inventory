@@ -25,11 +25,7 @@ function App(): React.JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      window.api.getSnapshot(),
-      window.api.getSettings(),
-      window.api.listSources()
-    ])
+    Promise.all([window.api.getSnapshot(), window.api.getSettings(), window.api.listSources()])
       .then(([snap, loaded, descriptors]) => {
         setSnapshot(snap);
         setSettings(loaded);
@@ -119,9 +115,7 @@ function App(): React.JSX.Element {
     setSettingsOpen(false);
     // Anything newly tracked — or previously broken and now fixed — has no good
     // data yet, so go get it rather than showing an empty tab.
-    const stale = (settings?.sources ?? []).some(
-      (id) => snapshot?.sources[id]?.state !== 'ok'
-    );
+    const stale = (settings?.sources ?? []).some((id) => snapshot?.sources[id]?.state !== 'ok');
     if (stale && statusRef.current !== 'refreshing') void onRefreshRef.current();
   }, [settings, snapshot]);
 
@@ -132,7 +126,7 @@ function App(): React.JSX.Element {
       return (
         <div className="empty empty-cta">
           <h2>Nothing tracked yet</h2>
-          <p>Choose which package managers and app sources you want to keep an eye on.</p>
+          <p>Choose which package managers you want to keep an eye on.</p>
           <button className="refresh-button" onClick={() => setSettingsOpen(true)}>
             Choose what to track
           </button>
@@ -170,7 +164,7 @@ function App(): React.JSX.Element {
       <header className="app-header">
         <div className="app-title">
           <h1>os-inventory</h1>
-          <span className="app-subtitle">Package versions</span>
+          <span className="app-subtitle">Developer dependencies</span>
         </div>
         <div className="header-actions">
           <RefreshBar
@@ -213,8 +207,7 @@ function App(): React.JSX.Element {
           <nav className="tabs">
             {tabs.map((t) => {
               const result = snapshot?.sources[t.id];
-              const outdated =
-                result?.items.filter((p) => p.status === 'outdated').length ?? 0;
+              const outdated = result?.items.filter((p) => p.status === 'outdated').length ?? 0;
               return (
                 <button
                   key={t.id}

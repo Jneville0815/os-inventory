@@ -57,9 +57,9 @@ export async function pypiLatest(names: string[]): Promise<Map<string, string>> 
   const latest = new Map<string, string>();
 
   await mapWithConcurrency(names, CONCURRENCY, async (name) => {
-    const data = (await getJson(
-      `https://pypi.org/pypi/${encodeURIComponent(name)}/json`
-    )) as { info?: { version?: string } } | null;
+    const data = (await getJson(`https://pypi.org/pypi/${encodeURIComponent(name)}/json`)) as {
+      info?: { version?: string };
+    } | null;
     const version = data?.info?.version;
     if (version) latest.set(name, version);
   });

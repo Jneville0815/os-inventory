@@ -121,10 +121,7 @@ export default function SettingsPanel({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const byId = useMemo(
-    () => new Map(sources.map((s) => [s.id, s] as const)),
-    [sources]
-  );
+  const byId = useMemo(() => new Map(sources.map((s) => [s.id, s] as const)), [sources]);
 
   const tracked = settings.sources
     .map((id) => byId.get(id))
@@ -167,8 +164,7 @@ export default function SettingsPanel({
   const setSources = (next: SourceId[]): void => onChange({ ...settings, sources: next });
 
   const add = (id: SourceId): void => setSources([...settings.sources, id]);
-  const remove = (id: SourceId): void =>
-    setSources(settings.sources.filter((s) => s !== id));
+  const remove = (id: SourceId): void => setSources(settings.sources.filter((s) => s !== id));
 
   const move = (id: SourceId, delta: number): void => {
     const from = settings.sources.indexOf(id);
@@ -332,8 +328,8 @@ export default function SettingsPanel({
           <section className="settings-section">
             <h3>Custom sources</h3>
             <p className="settings-help">
-              Track any package manager by naming a command and how to read its output.
-              The command runs exactly as written — nothing goes through a shell.
+              Track any package manager by naming a command and how to read its output. The command
+              runs exactly as written — nothing goes through a shell.
             </p>
 
             {settings.customSources.length > 0 && (
@@ -387,8 +383,7 @@ export default function SettingsPanel({
             <section className="settings-section">
               <h3>Tool locations</h3>
               <p className="settings-help">
-                Leave blank to auto-detect. Set a full path if a tool lives somewhere
-                unusual.
+                Leave blank to auto-detect. Set a full path if a tool lives somewhere unusual.
               </p>
               {toolIds.map((toolId) => (
                 <ToolPathField

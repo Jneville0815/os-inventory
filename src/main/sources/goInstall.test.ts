@@ -63,6 +63,8 @@ describe('escapeModulePath', () => {
 
   it('escapes uppercase as !lower, per the module proxy protocol', () => {
     expect(escapeModulePath('github.com/BurntSushi/toml')).toBe('github.com/!burnt!sushi/toml');
-    expect(escapeModulePath('github.com/Masterminds/semver')).toBe('github.com/!masterminds/semver');
+    expect(escapeModulePath('github.com/Masterminds/semver')).toBe(
+      'github.com/!masterminds/semver'
+    );
   });
 });

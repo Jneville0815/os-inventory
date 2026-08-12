@@ -1,10 +1,4 @@
-import type {
-  Package,
-  RefreshProgress,
-  Settings,
-  Snapshot,
-  SourceResult
-} from '../shared/types';
+import type { Package, RefreshProgress, Settings, Snapshot, SourceResult } from '../shared/types';
 import { isSupported, resolveSources, type RefreshCtx, type Source } from './sources';
 import { resetToolCache } from './tools';
 

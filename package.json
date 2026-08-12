@@ -1,11 +1,11 @@
 {
   "name": "os-inventory",
-  "version": "0.1.0",
-  "description": "Desktop dashboard showing installed vs. latest versions across package ecosystems (Homebrew first).",
+  "version": "0.9.0",
+  "description": "See which of your developer dependencies are out of date, across every package manager on your Mac.",
   "main": "./out/main/index.js",
-  "author": "jimmyneville",
+  "author": "Jimmy Neville <jimmyeneville@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/jimmyneville/os-inventory",
+  "homepage": "https://github.com/Jneville0815/os-inventory",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -48,5 +48,20 @@
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "package-manager",
+    "outdated",
+    "dependencies",
+    "developer-tools",
+    "electron",
+    "macos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jneville0815/os-inventory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jneville0815/os-inventory/issues"
   }
 }

@@ -159,6 +159,5 @@ export const goInstall: Source = {
       .sort(sortByDisplayName);
   },
 
-  upgradeCommand: (outdated) =>
-    outdated.map((p) => `go install ${p.name}@latest`).join(' && ')
+  upgradeCommand: (outdated) => outdated.map((p) => `go install ${p.name}@latest`).join(' && ')
 };

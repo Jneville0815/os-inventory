@@ -1,9 +1,4 @@
-import type {
-  BuiltInSourceId,
-  Settings,
-  SourceDescriptor,
-  SourceId
-} from '../../shared/types';
+import type { BuiltInSourceId, Settings, SourceDescriptor, SourceId } from '../../shared/types';
 import { resetToolCache } from '../tools';
 import { homebrewFormula } from './homebrew';
 import { npmGlobals } from './npmGlobals';

@@ -37,8 +37,7 @@ const EXAMPLES: Array<{ label: string; config: Omit<CustomSource, 'id'> }> = [
       args: ['outdated'],
       mode: 'regex',
       // Matches the very common "name (1.0.0 < 2.0.0)" and "name (1.0.0 -> 2.0.0)".
-      pattern:
-        '^(?<name>\\S+)\\s+\\((?<installed>[^\\s<>-]+)\\s*(?:<|->)\\s*(?<latest>[^)]+)\\)',
+      pattern: '^(?<name>\\S+)\\s+\\((?<installed>[^\\s<>-]+)\\s*(?:<|->)\\s*(?<latest>[^)]+)\\)',
       upgradeCommand: 'yourtool upgrade'
     }
   },
@@ -266,9 +265,7 @@ export default function CustomSourceForm({
           ) : (
             <strong>{test.error}</strong>
           )}
-          {test.resolvedCommand && (
-            <div className="test-meta mono">ran {test.resolvedCommand}</div>
-          )}
+          {test.resolvedCommand && <div className="test-meta mono">ran {test.resolvedCommand}</div>}
           {test.items && test.items.length > 0 && (
             <table className="test-table">
               <tbody>

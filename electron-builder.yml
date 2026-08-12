@@ -1,4 +1,7 @@
-appId: com.electron.app
+# Keep appId in sync with electronApp.setAppUserModelId() in src/main/index.ts.
+# Changing it after release breaks auto-update identity, so settle the product
+# name before shipping.
+appId: com.jimmyneville.os-inventory
 productName: OS Inventory
 directories:
   buildResources: build
@@ -6,25 +9,23 @@ files:
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,todos.md,CLAUDE.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
 win:
-  executableName: os-inventory-scaffold
+  executableName: os-inventory
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  category: public.app-category.developer-tools
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  # No extendInfo: the app uses no camera, microphone, Documents or Downloads
+  # access, so it must not declare usage strings asking for them.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
@@ -33,11 +34,12 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: Jimmy Neville <jimmyeneville@gmail.com>
+  category: Development
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Jneville0815
+  repo: os-inventory

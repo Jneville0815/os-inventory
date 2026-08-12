@@ -57,7 +57,11 @@ describe('parsePipxList', () => {
   it('prefers the metadata package name over the venv key', () => {
     // The two usually match, but the venv key isn't authoritative.
     const json = {
-      venvs: { 'some-venv': { metadata: { main_package: { package: 'real-name', package_version: '1.0' } } } }
+      venvs: {
+        'some-venv': {
+          metadata: { main_package: { package: 'real-name', package_version: '1.0' } }
+        }
+      }
     };
     expect(parsePipxList(json)[0].name).toBe('real-name');
   });

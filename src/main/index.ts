@@ -69,9 +69,7 @@ function broadcastProgress(progress: RefreshProgress): void {
 function registerIpc(): void {
   ipcMain.handle('inventory:getSnapshot', () => readSnapshot());
   ipcMain.handle('inventory:getSettings', () => readSettings());
-  ipcMain.handle('inventory:saveSettings', (_event, settings: unknown) =>
-    writeSettings(settings)
-  );
+  ipcMain.handle('inventory:saveSettings', (_event, settings: unknown) => writeSettings(settings));
   ipcMain.handle('inventory:listSources', async () => describeSources(await readSettings()));
   ipcMain.handle('inventory:refresh', () => refresh(broadcastProgress));
 

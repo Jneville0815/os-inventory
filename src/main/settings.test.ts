@@ -44,7 +44,9 @@ describe('normalizeSettings', () => {
   });
 
   it('keeps tool path overrides for known tools, trimmed', () => {
-    const s = normalizeSettings({ toolPaths: { go: '  /opt/custom/go  ', brew: '/usr/local/bin/brew' } });
+    const s = normalizeSettings({
+      toolPaths: { go: '  /opt/custom/go  ', brew: '/usr/local/bin/brew' }
+    });
     expect(s.toolPaths).toEqual({ brew: '/usr/local/bin/brew', go: '/opt/custom/go' });
   });
 
@@ -132,7 +134,9 @@ describe('normalizeCustomSource', () => {
   });
 
   it('rejects a pattern that will not compile, which would throw on every refresh', () => {
-    expect(normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '(?<name>' })).toBeNull();
+    expect(
+      normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '(?<name>' })
+    ).toBeNull();
     expect(normalizeCustomSource({ ...validCustom, mode: 'regex', pattern: '[z-a]' })).toBeNull();
   });
 
@@ -149,8 +153,9 @@ describe('normalizeCustomSource', () => {
   });
 
   it('keeps only integer exit codes, and omits the field when empty', () => {
-    expect(normalizeCustomSource({ ...validCustom, allowExitCodes: [1, 'x', 2.5, 2] })
-      ?.allowExitCodes).toEqual([1, 2]);
+    expect(
+      normalizeCustomSource({ ...validCustom, allowExitCodes: [1, 'x', 2.5, 2] })?.allowExitCodes
+    ).toEqual([1, 2]);
     expect(normalizeCustomSource(validCustom)?.allowExitCodes).toBeUndefined();
   });
 

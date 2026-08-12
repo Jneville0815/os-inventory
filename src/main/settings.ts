@@ -13,8 +13,18 @@ import type {
 
 const FILENAME = 'settings.json';
 const TOOL_IDS: ToolId[] = [
-  'brew', 'npm', 'pnpm', 'yarn', 'bun',
-  'pip', 'pipx', 'uv', 'gem', 'cargo', 'composer', 'go'
+  'brew',
+  'npm',
+  'pnpm',
+  'yarn',
+  'bun',
+  'pip',
+  'pipx',
+  'uv',
+  'gem',
+  'cargo',
+  'composer',
+  'go'
 ];
 const MODES: CustomSourceMode[] = ['regex', 'tsv', 'json'];
 

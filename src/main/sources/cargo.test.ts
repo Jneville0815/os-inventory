@@ -46,10 +46,6 @@ describe('parseCargoList', () => {
 
   it('ignores lines that are not headers', () => {
     const noisy = `Updating crates.io index\n${REAL}`;
-    expect(parseCargoList(noisy).map((c) => c.name)).toEqual([
-      'cargo-edit',
-      'ripgrep',
-      'tokei'
-    ]);
+    expect(parseCargoList(noisy).map((c) => c.name)).toEqual(['cargo-edit', 'ripgrep', 'tokei']);
   });
 });

@@ -61,9 +61,7 @@ async function loadFormulae(ctx: RefreshCtx): Promise<Package[]> {
   await run(['update', '--quiet']);
 
   ctx.note('reading installed packages');
-  const parsed = JSON.parse(
-    await run(['info', '--json=v2', '--installed'])
-  ) as BrewInfoPayload;
+  const parsed = JSON.parse(await run(['info', '--json=v2', '--installed'])) as BrewInfoPayload;
 
   return toFormulaPackages(parsed.formulae);
 }
