@@ -44,6 +44,28 @@ version-limited licence. What's left:
       and §5 cannot start without it. Nothing else in this file blocks on it, so
       start it and let it run in the background.
 
+**This is required *because* distribution is a direct download, not despite it.**
+Nothing here relates to the App Store. Three things depend on membership:
+
+1. **A Developer ID Application certificate.** The free Apple ID tier only issues
+   *Apple Development* certificates, which are for running your own builds on
+   your own machines. Gatekeeper rejects them for distribution — verifiably: a
+   `build:mac` output signed with the current cert gives
+   `spctl -a -t exec` → `rejected`, exit 3. Developer ID certs are issued only to
+   Program members.
+2. **The notarization service.** A Developer ID signature alone isn't enough; the
+   app must also be notarized by Apple and have the ticket stapled. Submitting
+   requires membership.
+3. **Auto-update.** Squirrel.Mac — what `electron-updater` uses — validates the
+   code signature of each downloaded update. Without proper signing, updates fail.
+
+Without it, a downloader gets a dialog saying Apple cannot verify the app is free
+of malware, offering to move it to the Trash. Since macOS 15 the Control-click →
+Open bypass is gone, so recovering means visiting System Settings → Privacy &
+Security and choosing "Open Anyway" after being refused. That's a poor first
+impression for something you're charging for, and the workaround is the same
+instruction malware distributors give.
+
 ---
 
 ## 2. Before anyone else sees a build — DONE (`0.9.0`)
