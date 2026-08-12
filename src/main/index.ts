@@ -1,7 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
-import icon from '../../resources/icon.png?asset';
 import { readSnapshot, writeSnapshot } from './cache';
 import { readSettings, writeSettings } from './settings';
 import { describeSources, testCustomSource } from './sources';
@@ -15,7 +14,6 @@ function createWindow(): BrowserWindow {
     height: 720,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -101,6 +99,6 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+// macOS convention: closing the last window leaves the app running in the Dock.
+// Electron quits by default without a handler here, so this has to stay.
+app.on('window-all-closed', () => {});

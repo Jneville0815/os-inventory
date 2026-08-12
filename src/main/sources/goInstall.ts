@@ -123,7 +123,6 @@ export const goInstall: Source = {
   label: 'Go Binaries',
   itemNoun: 'binaries',
   description: 'Binaries installed with `go install` into $GOBIN.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'go',
   hint: 'Install Go from go.dev',
   detect: detectViaTool('go'),

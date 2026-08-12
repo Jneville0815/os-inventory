@@ -20,7 +20,6 @@ type AddableEntry = {
   key: string;
   label: string;
   description: string;
-  supported: boolean;
   detected: boolean;
   /** Where the backing command was found. */
   detail?: string;
@@ -46,9 +45,6 @@ const TOOL_LABEL: Record<ToolId, string> = {
 type SourceStatus = { text: string; tone: 'ok' | 'warn' | 'muted' };
 
 function statusOf(source: SourceDescriptor): SourceStatus {
-  if (!source.supported) {
-    return { text: 'Not available on this operating system', tone: 'muted' };
-  }
   if (source.detected) {
     return {
       text: source.toolPath ? `Found at ${source.toolPath}` : 'Ready',
@@ -137,7 +133,6 @@ export default function SettingsPanel({
           key: s.id,
           label: s.label,
           description: s.description,
-          supported: s.supported,
           detected: s.detected,
           detail: s.toolPath,
           hint: s.hint,
@@ -149,14 +144,14 @@ export default function SettingsPanel({
 
   // Lead with what's actually on this machine — a list full of "not found"
   // reads as the app telling you what you ought to have installed.
-  const detected = available.filter((e) => e.supported && e.detected);
-  const undetected = available.filter((e) => !e.supported || !e.detected);
+  const detected = available.filter((e) => e.detected);
+  const undetected = available.filter((e) => !e.detected);
 
   // Only offer path overrides for tools something can actually use here.
   const toolIds = useMemo(() => {
     const ids = new Set<ToolId>();
     for (const s of sources) {
-      if (s.supported && s.toolId) ids.add(s.toolId);
+      if (s.toolId) ids.add(s.toolId);
     }
     return [...ids];
   }, [sources]);
@@ -305,16 +300,10 @@ export default function SettingsPanel({
                           <div className="source-label">{entry.label}</div>
                           <div className="source-desc">{entry.description}</div>
                           <div className="source-status source-status-warn">
-                            {!entry.supported
-                              ? 'Not available on this operating system'
-                              : (entry.hint ?? 'Not found on this machine')}
+                            {entry.hint ?? 'Not found on this machine'}
                           </div>
                         </div>
-                        <button
-                          className="add-button"
-                          onClick={entry.onAdd}
-                          disabled={!entry.supported}
-                        >
+                        <button className="add-button" onClick={entry.onAdd}>
                           Add
                         </button>
                       </li>

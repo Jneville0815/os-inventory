@@ -42,7 +42,6 @@ export const rubyGems: Source = {
   label: 'Ruby Gems',
   itemNoun: 'gems',
   description: 'Ruby gems installed with `gem install`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'gem',
   hint: 'Install Ruby from ruby-lang.org',
   detect: detectViaTool('gem'),

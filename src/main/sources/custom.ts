@@ -37,8 +37,6 @@ export function makeCustomSource(config: CustomSource): Source {
     label: config.label,
     itemNoun: config.itemNoun || 'items',
     description: [config.command, ...config.args].join(' '),
-    // The user defined this against their own machine; we can't know better.
-    platforms: ['darwin', 'linux', 'win32'],
     isCustom: true,
     hint: 'Check the command in Settings → Custom sources',
 

@@ -4,7 +4,7 @@
 
 <h1 align="center">OS Inventory</h1>
 
-A macOS desktop dashboard that shows which of your **developer dependencies are out of date** — what's installed next to the latest available version, at a glance.
+A **macOS** desktop dashboard that shows which of your **developer dependencies are out of date** — what's installed next to the latest available version, at a glance.
 
 Built in support for the package managers most developers already have:
 
@@ -74,9 +74,11 @@ See [`CLAUDE.md`](./CLAUDE.md) for the architecture, IPC contract, and per-sourc
 
 Deliberately not covered: applications and their plugins (editor extensions), and OS software (system updates, Mac App Store, `/Applications`, Homebrew casks). Keeping to one category is what stops the built-in list from being an opinion about which tools you ought to be using — and anything outside it, you can still add as a custom source.
 
+Also deliberately not covered: **Windows and Linux.** Supporting an OS you can't test on produces code that looks like support and isn't.
+
 ## Requirements
 
-- macOS. Paths resolve per-platform and Linux/Windows are prepared for, but only macOS is tested.
+- **macOS only** — Apple Silicon or Intel, both from the same build. There is no Windows or Linux support, and none is planned for now.
 - Every source is optional. Track only what you use; undetected tools stay out of your way.
 
 ## Known limitations

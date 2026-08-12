@@ -46,7 +46,6 @@ export const npmGlobals: Source = {
   label: 'npm Globals',
   itemNoun: 'packages',
   description: 'Packages installed with `npm install -g`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'npm',
   hint: 'Install Node.js from nodejs.org',
   detect: detectViaTool('npm'),

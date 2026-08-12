@@ -39,7 +39,6 @@ export const pipxTools: Source = {
   label: 'pipx Tools',
   itemNoun: 'tools',
   description: 'Python command-line tools installed with `pipx install`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'pipx',
   hint: 'Install pipx from pipx.pypa.io',
   detect: detectViaTool('pipx'),

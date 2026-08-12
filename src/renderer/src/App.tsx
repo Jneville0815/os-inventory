@@ -63,14 +63,13 @@ function App(): React.JSX.Element {
     setSources(await window.api.listSources());
   }, []);
 
-  // Tabs are exactly the tracked sources, in the user's order, minus any that
-  // can't run on this OS.
+  // Tabs are exactly the tracked sources, in the user's order.
   const tabs = useMemo(() => {
     if (!settings) return [];
     const byId = new Map(sources.map((s) => [s.id, s] as const));
     return settings.sources
       .map((id) => byId.get(id))
-      .filter((s): s is SourceDescriptor => s !== undefined && s.supported);
+      .filter((s): s is SourceDescriptor => s !== undefined);
   }, [settings, sources]);
 
   const activeTab = tabs.find((t) => t.id === tab) ?? tabs[0] ?? null;

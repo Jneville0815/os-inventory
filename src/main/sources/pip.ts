@@ -44,7 +44,6 @@ export const pipPackages: Source = {
   label: 'Python Packages',
   itemNoun: 'packages',
   description: 'Python packages installed with pip.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'pip',
   hint: 'Install Python from python.org',
   detect: detectViaTool('pip'),

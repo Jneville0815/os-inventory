@@ -5,6 +5,7 @@ dependency order — the top of each section unblocks the rest of it.
 
 **Shipped so far:** source registry, Settings (nothing tracked by default,
 detected-first), custom sources, 12 built-in package managers, 121 tests.
+**macOS only** — Windows and Linux support was removed deliberately.
 
 ---
 
@@ -155,11 +156,9 @@ Blocked on §1. This is what the money actually buys, so it has to be right.
 
 Not needed to ship; listed so they aren't rediscovered later.
 
-- [ ] **Windows.** `winget upgrade` and `scoop status` are straightforward;
-      installed programs from the `…\CurrentVersion\Uninstall` registry keys need
-      real work. Code-signing there has its own identity-verification lead time —
-      start it early if Windows becomes a priority.
-- [ ] **Linux.** `apt list --upgradable`, `dnf check-update`, pacman, Flatpak, Snap.
+- [ ] **Windows / Linux — explicitly dropped, not deferred.** All the code is gone;
+      see *Platform* in `CLAUDE.md` for what was removed and how to recover it.
+      Bringing either back means committing to actually running it on that OS.
 - [ ] **More managers.** `.NET` tools, SDKMAN. Each needs its real output captured
       before anything is written — see the rule in `CLAUDE.md`.
 - [ ] Per-source refresh instead of all-or-nothing.
@@ -170,10 +169,9 @@ Not needed to ship; listed so they aren't rediscovered later.
 
 ## 8. Known debt
 
-- [ ] **The Windows fixes in `3807ffc` have never run on Windows.** The `.cmd`
-      spawn fix, the `where` extension preference and the `basename` fix are all
-      reasoned from documented Node behaviour, not observed. Treat Windows as
-      unproven, not working.
+- [x] ~~The Windows fixes have never run on Windows.~~ Resolved by deletion —
+      the whole cross-platform surface is gone rather than shipping untested
+      branches that look like support.
 - [ ] **No CI at all.** `npm test` runs only when someone remembers. At minimum,
       run typecheck + lint + test on push before taking money for this.
 - [ ] **Nothing tests process spawning, path resolution or IPC.** Those are

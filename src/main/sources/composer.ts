@@ -40,7 +40,6 @@ export const composerGlobals: Source = {
   label: 'Composer Globals',
   itemNoun: 'packages',
   description: 'PHP packages installed with `composer global require`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'composer',
   hint: 'Install Composer from getcomposer.org',
   detect: detectViaTool('composer'),

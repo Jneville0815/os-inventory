@@ -32,6 +32,26 @@ Three rules follow, and together they're why the app shouldn't feel like it assu
 
 Deleted in service of this, and recoverable from git history if the boundary ever moves: the VS Code extension source (marketplace query with pre-release and engine-range filtering), the macOS `.app`/Sparkle source, the Homebrew cask source, and a recipe library of one-click OS-software configs.
 
+## Platform
+
+**macOS only.** Not "macOS first" — there is no Windows or Linux code left in the
+tree, and that's deliberate.
+
+It used to pretend otherwise: every source declared a `platforms` array, `tools.ts`
+carried `win32`/`linux` candidate paths, `exec.ts` had a whole branch for Windows'
+refusal to spawn `.cmd` files without a shell, and Settings had a "Not available on
+this operating system" state. None of it had ever run on Windows or Linux. Untested
+branches that claim to work are worse than absent ones — they invite trust they
+haven't earned — so they're gone, along with `isSupported()`, `SourceDescriptor.supported`,
+and the `win`/`nsis`/`linux`/`appImage` electron-builder targets.
+
+**To bring a platform back**, `git show` the commit that removed this (search the log
+for "Narrow the whole project to macOS") for the shape of what was there. Then expect
+to actually run it on that OS — the previous attempt's bugs were only found by
+reading Node's docs closely, not by testing, which is exactly why this is gone.
+
+Both Apple Silicon and Intel Macs are supported by the same build.
+
 ## Commands
 
 | Command                | What it does                                                     |
@@ -89,7 +109,7 @@ src/
 │   ├── tools.ts        resolves CLI paths (override → candidates → PATH)
 │   ├── registry.ts     PyPI / npm latest-version lookups (concurrency-capped)
 │   ├── childEnv.ts     widened PATH for spawned processes
-│   ├── exec.ts         execTool/execToolAllowExit (handles Windows .cmd)
+│   ├── exec.ts         execTool/execToolAllowExit (no shell, ever)
 │   └── sources/
 │       ├── source.ts          the Source contract + shared helpers
 │       ├── index.ts           BUILT_IN registry + resolveSources()/describeSources()
@@ -298,7 +318,7 @@ Commands also carry a 60s timeout so a hung tool can't wedge a refresh.
 
 ## Known gotchas
 
-- **CLI paths are resolved, not hard-coded** — `src/main/tools.ts` tries the user's Settings override, then a per-platform candidate list, then a `which`/`where` lookup. Reason GUI apps need this at all: macOS launchd starts them with a bare `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. Add new CLIs to `CANDIDATES` there, not as a constant in a source module.
+- **CLI paths are resolved, not hard-coded** — `src/main/tools.ts` tries the user's Settings override, then a candidate list, then a `which` lookup. Reason GUI apps need this at all: macOS launchd starts them with a bare `PATH`, so `execFile('brew', ...)` fails when launched from Finder / Dock. Add new CLIs to `CANDIDATES` and `LOOKUP_NAMES` there, not as a constant in a source module. Both Apple Silicon (`/opt/homebrew`) and Intel (`/usr/local`) locations are listed, so one build covers either Mac.
 - **The same missing-`PATH` problem also bites child processes those CLIs spawn internally.** `npm`'s global CLI is a script with a `#!/usr/bin/env node` shebang — `env` resolves `node` via the *child's* `PATH`, so even with an absolute npm path, a Finder-launched app fails with `env: node: No such file or directory`. Fixed via `src/main/childEnv.ts`, which every `execFile`/`execFileAsync` call uses instead of raw `process.env`. Use it for any new spawned process.
 - **`brew update` is slow** (10–30s cold). We run it on every refresh so "latest version" is genuinely current. Don't remove it without a replacement freshness strategy.
 - **No auto-update of the app itself.** Auto-*refresh* is user-configurable and defaults to hourly.
@@ -320,7 +340,6 @@ Three steps, no renderer changes:
 It then appears in Settings automatically, and existing users are unaffected until they add it.
 
 The mainstream language managers are covered. Remaining candidates:
-- **Windows / Linux** — `winget upgrade`, `apt list --upgradable`, `dnf check-update`. These need the platform work in `tools.ts` verified on a real machine first.
 - **Runtime version managers** — `mise outdated`, `asdf`. Arguably in scope (they install developer dependencies), arguably a different thing (they manage language *runtimes*). Decide before building.
 - **`.NET` tools, SDKMAN** — same shape as the rest, both need their real output captured first.
 
@@ -331,4 +350,4 @@ The mainstream language managers are covered. Remaining candidates:
 - No tracking of individual hand-picked packages — tracking is per-source.
 - No sharing or importing of custom source definitions (see the security note above).
 - **No applications or OS software** — no editor plugins, Mac App Store, system updates, `/Applications` scanning or Homebrew casks. This is a deliberate boundary, not a backlog; see *What this app is for*.
-- Cross-platform is *prepared for* but unproven: sources declare `platforms` and paths resolve per-OS, but only macOS is tested. Linux and Windows need their own sources plus a real run.
+- **macOS only, on purpose.** See *Platform* below.

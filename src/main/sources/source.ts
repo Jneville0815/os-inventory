@@ -28,8 +28,6 @@ export type Source = {
   itemNoun: string;
   /** One line explaining what this tracks, shown in Settings. */
   description: string;
-  /** Operating systems this source can run on at all. */
-  platforms: NodeJS.Platform[];
   /** The CLI it shells out to, if any. */
   toolId?: ToolId;
   /** Shown when the tool is missing. */

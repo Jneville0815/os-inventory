@@ -44,7 +44,6 @@ export const pnpmGlobals: Source = {
   label: 'pnpm Globals',
   itemNoun: 'packages',
   description: 'Packages installed with `pnpm add -g`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'pnpm',
   hint: 'Install pnpm from pnpm.io',
   detect: detectViaTool('pnpm'),

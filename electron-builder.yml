@@ -3,6 +3,9 @@
 # name before shipping.
 appId: com.jimmyneville.os-inventory
 productName: OS Inventory
+
+# macOS only. Windows and Linux targets were removed deliberately — see
+# "Platform" in CLAUDE.md before adding them back.
 directories:
   buildResources: build
 files:
@@ -14,13 +17,6 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
-win:
-  executableName: os-inventory
-nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
 mac:
   category: public.app-category.developer-tools
   entitlementsInherit: build/entitlements.mac.plist
@@ -28,15 +24,6 @@ mac:
   # access, so it must not declare usage strings asking for them.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
-  target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: Jimmy Neville <jimmyeneville@gmail.com>
-  category: Development
-appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:

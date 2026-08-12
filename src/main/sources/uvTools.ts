@@ -36,7 +36,6 @@ export const uvTools: Source = {
   label: 'uv Tools',
   itemNoun: 'tools',
   description: 'Python command-line tools installed with `uv tool install`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'uv',
   hint: 'Install uv from astral.sh/uv',
   detect: detectViaTool('uv'),

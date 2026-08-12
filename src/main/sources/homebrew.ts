@@ -71,7 +71,6 @@ export const homebrewFormula: Source = {
   label: 'Homebrew',
   itemNoun: 'formulae',
   description: 'Command-line packages installed with `brew install`.',
-  platforms: ['darwin', 'linux'],
   toolId: 'brew',
   hint: 'Install Homebrew from brew.sh',
   detect: detectViaTool('brew'),

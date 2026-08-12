@@ -100,7 +100,6 @@ export const cargoInstall: Source = {
   label: 'Rust Crates',
   itemNoun: 'crates',
   description: 'Binaries installed with `cargo install`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'cargo',
   hint: 'Install Rust from rustup.rs',
   detect: detectViaTool('cargo'),

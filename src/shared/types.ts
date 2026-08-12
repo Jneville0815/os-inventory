@@ -148,8 +148,6 @@ export type SourceDescriptor = {
   toolId?: ToolId;
   /** True for user-defined sources — Settings offers Edit/Delete for those. */
   isCustom: boolean;
-  /** False when this source can't work on the current OS at all. */
-  supported: boolean;
   /** True when the underlying CLI was found. */
   detected: boolean;
   toolPath?: string;

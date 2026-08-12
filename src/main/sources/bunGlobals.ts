@@ -50,7 +50,6 @@ export const bunGlobals: Source = {
   label: 'Bun Globals',
   itemNoun: 'packages',
   description: 'Packages installed with `bun add -g`.',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'bun',
   hint: 'Install Bun from bun.sh',
   detect: detectViaTool('bun'),

@@ -35,7 +35,6 @@ export const yarnGlobals: Source = {
   label: 'Yarn Globals',
   itemNoun: 'packages',
   description: 'Packages installed with `yarn global add` (Yarn 1 only).',
-  platforms: ['darwin', 'linux', 'win32'],
   toolId: 'yarn',
   hint: 'Install Yarn from yarnpkg.com',
   detect: detectViaTool('yarn'),

@@ -58,10 +58,6 @@ export function findSource(settings: Settings, id: SourceId): Source | undefined
   return resolveSources(settings).find((s) => s.id === id);
 }
 
-export function isSupported(source: Source): boolean {
-  return source.platforms.includes(process.platform);
-}
-
 /**
  * Describes every source for the settings panel, including whether its CLI is
  * actually present. Detection is re-run on each call so a tool installed (or a
@@ -72,10 +68,7 @@ export async function describeSources(settings: Settings): Promise<SourceDescrip
 
   return Promise.all(
     resolveSources(settings).map(async (source): Promise<SourceDescriptor> => {
-      const supported = isSupported(source);
-      const { detected, toolPath } = supported
-        ? await source.detect(settings)
-        : { detected: false, toolPath: undefined };
+      const { detected, toolPath } = await source.detect(settings);
 
       return {
         id: source.id,
@@ -84,7 +77,6 @@ export async function describeSources(settings: Settings): Promise<SourceDescrip
         description: source.description,
         toolId: source.toolId,
         isCustom: source.isCustom ?? false,
-        supported,
         detected,
         toolPath,
         hint: source.hint
