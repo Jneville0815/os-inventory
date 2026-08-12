@@ -52,6 +52,50 @@ reading Node's docs closely, not by testing, which is exactly why this is gone.
 
 Both Apple Silicon and Intel Macs are supported by the same build.
 
+## Licensing model
+
+**The Sublime Text model, deliberately and exactly.**
+
+- **Free to download, open source, and fully functional.** No feature gates, no
+  time limit, no crippling. Every source, custom sources included, works
+  unlicensed and always will.
+- **A licence is requested, not enforced.** After a number of refreshes, an
+  unlicensed copy shows a modal asking you to buy one — *Buy a licence* /
+  *Enter licence* / *Not now* — and an `unregistered` chip sits in the header.
+  Dismissing it costs nothing and blocks nothing.
+- **One-time purchase, version-limited.** A 1.x licence covers every 1.x
+  release; a future 2.0 is a paid upgrade. That's the `maxMajor` field in the
+  key payload.
+- **Verified offline.** The key is a signed blob pasted into Settings. The app
+  never contacts a licence server — there isn't one to contact.
+
+### Not the Mac App Store — and not by preference
+
+Direct download only. This isn't a business-model choice that could be revisited
+later: **App Store apps must carry the App Sandbox entitlement, and a sandboxed
+app cannot execute binaries outside its container.** This app's entire function
+is spawning `/opt/homebrew/bin/brew`, `/usr/bin/gem`, the user's `cargo`, and
+whatever arbitrary command a custom source names. Sandboxed, it can do none of
+that. The App Store is technically closed to this app, not merely unattractive.
+
+(Not to be confused with `sandbox: false` in the BrowserWindow's `webPreferences`
+— that's Electron's *renderer* sandbox, a different mechanism entirely.)
+
+The practical consequence runs the other way from what you might expect:
+**shipping outside the App Store makes notarization more important, not less.**
+A direct-download app that isn't signed with a Developer ID and notarized gets
+"cannot be opened because the developer cannot be verified" from Gatekeeper,
+and most people stop there.
+
+### Don't harden the check
+
+The source is public and MIT, so the verification public key is visible and the
+check is a few lines anyone can delete. That is also true of Sublime Text, and it
+sustains them. This is an honour system backed by convenience — a signed,
+notarized, auto-updating build you didn't have to compile. **Spend no effort on
+obfuscation, tamper-detection, or phone-home checks**; they don't work, they
+punish honest users, and they'd contradict the privacy claim.
+
 ## Commands
 
 | Command                | What it does                                                     |

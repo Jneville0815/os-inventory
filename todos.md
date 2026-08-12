@@ -7,18 +7,27 @@ dependency order — the top of each section unblocks the rest of it.
 detected-first), custom sources, 12 built-in package managers, 121 tests.
 **macOS only** — Windows and Linux support was removed deliberately.
 
+**The model is settled: exactly Sublime Text.** Free, open source, fully
+functional, direct download only. An unlicensed copy shows a purchase modal
+after a while and is otherwise unrestricted. See *Licensing model* in
+`CLAUDE.md` — including why the Mac App Store is technically closed to this app
+rather than merely declined.
+
 ---
 
 ## 0. Decisions needed
 
-These gate real work, and two of them get more expensive the longer they wait.
+Settled already: the Sublime Text model, macOS only, direct download, one-time
+version-limited licence. What's left:
 
 - [ ] **Product name.** `os-inventory` reads as a repo, not a product. It sets the
-      `appId`, the DMG filename, the window title, the domain and the store
-      listing — all cheap now, all painful after the first customer. *Blocks §2, §5, §6.*
-- [ ] **Price, and what an upgrade costs.** Decided: one-time, version-limited
-      (a 1.x licence, 2.0 is a paid upgrade). The number is still open. No code
-      depends on it, but the store listing and site copy do.
+      `appId`, the DMG filename, the window title, and the domain — all cheap
+      now, all painful after the first customer, because changing `appId` after
+      release breaks auto-update identity. *Blocks §2, §5, §6.*
+- [ ] **The price.** The shape is decided (one payment, covers all 1.x, 2.0 is a
+      paid upgrade); only the number is open. No code depends on it — the site
+      copy and store listing do. For reference, Sublime Text is $99 for a
+      3-year-updates licence; this is a far smaller tool.
 - [ ] **Store: Polar or Lemon Squeezy.** Both are merchants of record, so either
       one takes on EU VAT and US sales tax. The choice only changes webhook
       signature verification in the licence issuer. *Blocks §4.*
@@ -71,31 +80,49 @@ Small, but all of it leaks into the artifact a customer downloads.
 
 No server involved: the app verifies offline and never phones home.
 
+**Keys**
+
 - [ ] `scripts/keygen.ts` — generate the Ed25519 keypair once. Private half into
       a password manager, **never** the repo.
 - [ ] Commit the public key at `src/shared/licensePublicKey.ts`.
 - [ ] Key format — one paste-safe line, whitespace stripped on verify:
       `OSINV1.<base64url(payload)>.<base64url(sig)>` where payload is
       `{ v, order, name, email, product, maxMajor, issuedAt }`.
+      `maxMajor` is what makes a 1.x licence stop at 2.0.
 - [ ] `src/main/license.ts` — verify via `node:crypto` (`crypto.verify(null, …)`).
       Ed25519 is built in, so **no new dependencies**. Returns
       `unlicensed | valid | invalid | covers-earlier-version`.
 - [ ] Store the raw key in `settings.json`; extend `normalizeSettings()` and the
       `Settings` type.
+- [ ] Tests: valid key, tampered payload, wrong keypair, `maxMajor` below the
+      running major (prompts to upgrade, **still runs**).
+
+**The prompt** — this is the Sublime behaviour, so get the feel right
+
+- [ ] Count completed refreshes in `settings.json`. A refresh is this app's unit
+      of work, the way a save is Sublime's.
+- [ ] Show a modal when unlicensed: **first at ~10 refreshes, then every ~15**.
+      Buttons: *Buy a licence* · *Enter licence* · *Not now*. Reuse the existing
+      `.modal` styling from `SettingsPanel.tsx` rather than a native dialog.
+- [ ] Never on first launch, never mid-refresh, and never more than once per
+      session. Someone evaluating it should reach a useful screen before being
+      asked for anything.
+- [ ] `unregistered` chip in the header while unlicensed; replaced by the
+      licensee's name once verified.
 - [ ] Settings → **Licence** pane: status, paste box, Verify, Remove, Buy link
       (opens externally via the existing `setWindowOpenHandler`).
-- [ ] Unlicensed behaviour: **fully functional**, small `unregistered` chip in the
-      header, dismissible purchase banner roughly every 20th launch. No launch
-      modal, no countdown, no feature gates.
-- [ ] Tests: valid key, tampered payload, wrong keypair, `maxMajor` lower than the
-      running major (shows upgrade prompt, still runs).
+
+**What must stay true**
+
+- [ ] No feature is ever gated, degraded or time-limited. Every source, custom
+      sources included, works unlicensed forever.
+- [ ] *Not now* is always available and always free. No countdown, no
+      escalating frequency, no dark patterns.
 
 > The source is public and MIT, so the public key is visible and the check is
-> trivially patchable. That's Sublime Text's position too, and it's fine — this
-> is an honour system backed by convenience, not DRM. **Spend no effort on
-> obfuscation or tamper-checks**; they never pay back.
-
----
+> trivially patchable. That's Sublime Text's position too, and it sustains them.
+> **Spend no effort on obfuscation or tamper-checks** — they don't work, they
+> punish honest users, and they'd contradict the no-phone-home promise.
 
 ## 4. Payment infrastructure
 
@@ -116,7 +143,11 @@ No server involved: the app verifies offline and never phones home.
 
 ## 5. Signing, notarization, auto-update
 
-Blocked on §1. This is what the money actually buys, so it has to be right.
+Blocked on §1. This is what the money actually buys, so it has to be right —
+and because distribution is direct download rather than the App Store,
+**notarization matters more, not less**: an un-notarized download gets "cannot
+be opened because the developer cannot be verified" from Gatekeeper, and most
+people stop there.
 
 - [ ] Create a **Developer ID Application** certificate. The current build picks up
       an *Apple Development* cert, which Gatekeeper rejects everywhere except the
@@ -139,8 +170,10 @@ Blocked on §1. This is what the money actually buys, so it has to be right.
 
 ## 6. Site and launch
 
-- [ ] Static site (Cloudflare Pages or GitHub Pages): screenshot, download, Buy,
-      changelog.
+- [ ] Static site (Cloudflare Pages or GitHub Pages): screenshot, **direct .dmg
+      download**, Buy, changelog. The download is the primary call to action —
+      free and unrestricted — with Buy secondary. Selling first would misdescribe
+      the deal.
 - [ ] *"Where do I put my licence key?"* page — this is the top support question
       for every app that works this way.
 - [ ] **Privacy page.** The app makes outbound calls to PyPI, the npm registry,
@@ -149,6 +182,9 @@ Blocked on §1. This is what the money actually buys, so it has to be right.
       boilerplate.
 - [ ] Launch copy built on the scope line: *see every out-of-date developer
       dependency on your Mac.*
+- [ ] State the licence terms in plain words, the way sublimehq does: free to
+      download and evaluate, a licence is expected for continued use, one
+      purchase covers 1.x.
 
 ---
 

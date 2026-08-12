@@ -20,6 +20,8 @@ Nothing is tracked by default. You pick what you want in Settings, and each one 
 
 Using something that isn't on the list? **Add it yourself** — point OS Inventory at any command and tell it how to read the output, either with a pattern or by having your own script print `name`, `installed` and `latest`. There's a Test button that shows you the raw output next to what it parsed.
 
+**Free to download and use.** Like Sublime Text, OS Inventory will ask you to buy a licence if you keep using it — but nothing is locked, time-limited or cut down, and dismissing the prompt costs you nothing.
+
 Built with Electron, React, and TypeScript.
 
 ![OS Inventory dashboard, showing Homebrew, npm, Python, Ruby and Go tabs with out-of-date packages listed first](./resources/screenshots/dashboard.png)
@@ -75,6 +77,19 @@ See [`CLAUDE.md`](./CLAUDE.md) for the architecture, IPC contract, and per-sourc
 Deliberately not covered: applications and their plugins (editor extensions), and OS software (system updates, Mac App Store, `/Applications`, Homebrew casks). Keeping to one category is what stops the built-in list from being an opinion about which tools you ought to be using — and anything outside it, you can still add as a custom source.
 
 Also deliberately not covered: **Windows and Linux.** Supporting an OS you can't test on produces code that looks like support and isn't.
+
+## Licence and pricing
+
+The same arrangement Sublime Text uses:
+
+- **Free to download, open source, and fully functional.** Every feature works unlicensed — no gates, no trial clock, no reduced mode.
+- **A licence is requested, not enforced.** After you've used it a while, an unlicensed copy shows a prompt offering to sell you one. *Not now* dismisses it and nothing changes.
+- **One purchase, no subscription.** A 1.x licence covers every 1.x release. A future 2.0 would be a paid upgrade.
+- **Verified offline.** You paste the key into Settings. The app never contacts a licence server, because there isn't one.
+
+You're welcome to build from source and skip all of this — that's what the licence on this repo means. What buying gets you is a signed, notarized, auto-updating build you didn't have to compile, and the work continuing.
+
+**Not on the Mac App Store**, and it can't be: App Store apps must be sandboxed, and a sandboxed app can't run `brew`, `gem`, `cargo` or anything else on your machine. Download it directly instead.
 
 ## Requirements
 
